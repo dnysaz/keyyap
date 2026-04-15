@@ -276,7 +276,7 @@ export default function PostDetailPage() {
     setCommentLinkMetas(linkMetaMap)
   }
 
-  // Real-time subscription for comments — separate effect to avoid re-subscribing on every comment change
+  // Real-time subscription for comments
   useEffect(() => {
     if (!post?.id) return
 
@@ -292,9 +292,32 @@ export default function PostDetailPage() {
           table: 'comments',
           filter: `post_id=eq.${postId}`
         },
-        () => {
-          // Re-fetch all comments on any change to maintain correct tree structure & profile data
-          fetchCommentsForPost(postId)
+        async (payload) => {
+          console.log(`Realtime comment event [${payload.eventType}]:`, payload)
+
+          if (payload.eventType === 'INSERT') {
+            const newCommentId = payload.new.id
+            // Only fetch if we don't already have it
+            setComments((prevTree) => {
+              // Deep check if we already have this comment (from optimistic UI or manual fetch)
+              const hasComment = JSON.stringify(prevTree).includes(newCommentId)
+              if (!hasComment) {
+                // To be completely safe and avoid stale-closures, we schedule a full tree re-fetch.
+                // We add a tiny delay to ensure Supabase read replicas are synced.
+                setTimeout(() => fetchCommentsForPost(postId), 150)
+              }
+              return prevTree
+            })
+            // Update counter
+            setCommentCount(prev => prev + 1)
+            setPost((p: any) => p ? ({ ...p, comments_count: (p.comments_count || 0) + 1 }) : p)
+          } else if (payload.eventType === 'DELETE') {
+            setCommentCount(prev => Math.max(0, prev - 1))
+            setPost((p: any) => p ? ({ ...p, comments_count: Math.max(0, (p.comments_count || 0) - 1) }) : p)
+            setTimeout(() => fetchCommentsForPost(postId), 100)
+          } else if (payload.eventType === 'UPDATE') {
+            setTimeout(() => fetchCommentsForPost(postId), 100)
+          }
         }
       )
       .subscribe((status) => {
@@ -364,32 +387,63 @@ export default function PostDetailPage() {
     if (e?.preventDefault) e.preventDefault()
     if (!user || !newComment.trim() || !post) return
 
+    // Immediately clear input to improve perceived performance
+    const commentText = newComment.trim()
+    setNewComment('')
+    setReplyingTo(null)
+
     const { data: insertedComment, error } = await supabase.from('comments').insert({
       user_id: user.id,
       post_id: post.id,
       parent_comment_id: replyingTo?.id || null,
-      content: newComment.trim()
+      content: commentText
     }).select().single()
 
-    if (error) return
+    if (error) {
+      console.error('Error inserting comment:', error)
+      return
+    }
 
-    const targetUserId = replyingTo ? replyingTo.user_id : post.user_id
-    if (user.id !== targetUserId) {
-      await supabase.from('notifications').insert({
-        type: 'comment',
-        user_id: targetUserId,
-        from_user_id: user.id,
-        post_id: post.id,
-        comment_id: insertedComment?.id || null
+    // 1. Find all users who ever participated in this post (including the post owner)
+    const { data: participants } = await supabase
+      .from('comments')
+      .select('user_id')
+      .eq('post_id', post.id)
+
+    // Use a Set to ensure unique user IDs
+    const notifyUserIds = new Set<string>()
+
+    // Always notify the POST AUTHOR
+    if (post.user_id !== user.id) {
+      notifyUserIds.add(post.user_id)
+    }
+
+    // Always notify previous COMMENTERS
+    if (participants) {
+      participants.forEach(p => {
+        if (p.user_id !== user.id) {
+          notifyUserIds.add(p.user_id)
+        }
       })
     }
 
-    setNewComment('')
-    setReplyingTo(null)
+    // 2. Insert notifications for everyone in the Set
+    const notifsToInsert = Array.from(notifyUserIds).map(targetUserId => ({
+      type: 'comment',
+      user_id: targetUserId,
+      from_user_id: user.id,
+      post_id: post.id,
+      comment_id: insertedComment?.id || null
+    }))
+
+    if (notifsToInsert.length > 0) {
+      await supabase.from('notifications').insert(notifsToInsert)
+    }
+
     setCommentCount(prev => prev + 1)
     setPost((p: any) => ({ ...p, comments_count: (p?.comments_count || 0) + 1 }))
 
-    // Re-fetch comments using the shared function (also triggered by realtime, but immediate fetch ensures no delay)
+    // 3. Re-fetch comments using the shared function
     await fetchCommentsForPost(post.id)
   }
 

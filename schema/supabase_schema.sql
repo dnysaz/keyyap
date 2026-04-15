@@ -1,5 +1,5 @@
 -- =========================================================================
--- KeyYap.com - COMPLETE CONSOLIDATED BACKEND SCHEMA (v3.0)
+-- KeyYap.com - COMPLETE CONSOLIDATED BACKEND SCHEMA (v3.1 MAXIMIZED)
 -- =========================================================================
 -- This script contains all tables, policies, functions, triggers, and 
 -- security patches required for the KeyYap application backend.
@@ -40,7 +40,7 @@ CREATE POLICY "profiles_delete_auth" ON public.profiles FOR DELETE USING (auth.u
 CREATE TABLE IF NOT EXISTS public.posts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  content TEXT, -- Nullable to allow simple reposts as quote posts
+  content TEXT,
   hashtags JSONB,
   likes_count INTEGER DEFAULT 0,
   comments_count INTEGER DEFAULT 0,
@@ -51,13 +51,6 @@ CREATE TABLE IF NOT EXISTS public.posts (
   is_deleted BOOLEAN DEFAULT false,
   quoted_post_id UUID REFERENCES public.posts(id) ON DELETE SET NULL
 );
-
--- Ensure column exists if table was already created in earlier version
-ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS quoted_post_id UUID REFERENCES public.posts(id) ON DELETE SET NULL;
-ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS shares_count INTEGER DEFAULT 0;
-ALTER TABLE public.posts ALTER COLUMN content DROP NOT NULL;
-
-CREATE INDEX IF NOT EXISTS idx_posts_quoted_post_id ON public.posts(quoted_post_id);
 
 ALTER TABLE public.posts ENABLE ROW LEVEL SECURITY;
 
@@ -145,8 +138,7 @@ CREATE TABLE IF NOT EXISTS public.comments (
   content TEXT NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  is_deleted BOOLEAN DEFAULT false,
-  CONSTRAINT content_length CHECK (char_length(content) <= 512)
+  is_deleted BOOLEAN DEFAULT false
 );
 
 ALTER TABLE public.comments ENABLE ROW LEVEL SECURITY;
@@ -204,151 +196,120 @@ BEGIN
   ON CONFLICT (id) DO NOTHING;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- FUNC 2: Handle Post Likes (Security Definer to bypass RLS)
-CREATE OR REPLACE FUNCTION public.handle_post_like()
+-- FUNC 2: Handle Counter Updates (Likes, Comments, Shares)
+CREATE OR REPLACE FUNCTION public.handle_counters()
 RETURNS TRIGGER AS $$
 BEGIN
-  IF TG_OP = 'INSERT' THEN
-    UPDATE public.posts SET likes_count = likes_count + 1 WHERE id = NEW.post_id;
-  ELSIF TG_OP = 'DELETE' THEN
-    UPDATE public.posts SET likes_count = GREATEST(likes_count - 1, 0) WHERE id = OLD.post_id;
-  END IF;
-  RETURN NULL;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-DROP TRIGGER IF EXISTS update_likes_count_on_like ON public.post_likes;
-CREATE TRIGGER update_likes_count_on_like
-  AFTER INSERT OR DELETE ON public.post_likes
-  FOR EACH ROW EXECUTE FUNCTION public.handle_post_like();
-
--- FUNC 3: Handle Comment Counts
-CREATE OR REPLACE FUNCTION public.handle_comment_count()
-RETURNS TRIGGER AS $$
-BEGIN
-  IF TG_OP = 'INSERT' THEN
-    UPDATE public.posts SET comments_count = comments_count + 1 WHERE id = NEW.post_id;
-  ELSIF TG_OP = 'DELETE' THEN
-    UPDATE public.posts SET comments_count = GREATEST(comments_count - 1, 0) WHERE id = OLD.post_id;
-  ELSIF TG_OP = 'UPDATE' THEN
-    -- Handle soft delete (is_deleted toggle)
-    IF OLD.is_deleted = false AND NEW.is_deleted = true THEN
-      UPDATE public.posts SET comments_count = GREATEST(comments_count - 1, 0) WHERE id = NEW.post_id;
-    ELSIF OLD.is_deleted = true AND NEW.is_deleted = false THEN
+  IF TG_TABLE_NAME = 'post_likes' THEN
+    IF TG_OP = 'INSERT' THEN
+      UPDATE public.posts SET likes_count = likes_count + 1 WHERE id = NEW.post_id;
+    ELSIF TG_OP = 'DELETE' THEN
+      UPDATE public.posts SET likes_count = GREATEST(likes_count - 1, 0) WHERE id = OLD.post_id;
+    END IF;
+  ELSIF TG_TABLE_NAME = 'comments' THEN
+    IF TG_OP = 'INSERT' THEN
       UPDATE public.posts SET comments_count = comments_count + 1 WHERE id = NEW.post_id;
+    ELSIF TG_OP = 'DELETE' THEN
+      UPDATE public.posts SET comments_count = GREATEST(comments_count - 1, 0) WHERE id = OLD.post_id;
     END IF;
-  END IF;
-  RETURN NULL;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-DROP TRIGGER IF EXISTS update_comments_count_on_comment ON public.comments;
-CREATE TRIGGER update_comments_count_on_comment
-  AFTER INSERT OR DELETE OR UPDATE ON public.comments
-  FOR EACH ROW EXECUTE FUNCTION public.handle_comment_count();
-
--- FUNC 4: Handle Share Counts (Reposts and Quote Posts)
-CREATE OR REPLACE FUNCTION public.handle_share_count()
-RETURNS TRIGGER AS $$
-BEGIN
-  IF TG_OP = 'INSERT' THEN
-    IF TG_TABLE_NAME = 'reposts' THEN
+  ELSIF TG_TABLE_NAME = 'reposts' THEN
+    IF TG_OP = 'INSERT' THEN
       UPDATE public.posts SET shares_count = shares_count + 1 WHERE id = NEW.original_post_id;
-    ELSIF TG_TABLE_NAME = 'posts' AND NEW.quoted_post_id IS NOT NULL THEN
-      UPDATE public.posts SET shares_count = shares_count + 1 WHERE id = NEW.quoted_post_id;
-    END IF;
-  ELSIF TG_OP = 'DELETE' THEN
-    IF TG_TABLE_NAME = 'reposts' THEN
+    ELSIF TG_OP = 'DELETE' THEN
       UPDATE public.posts SET shares_count = GREATEST(shares_count - 1, 0) WHERE id = OLD.original_post_id;
-    ELSIF TG_TABLE_NAME = 'posts' AND OLD.quoted_post_id IS NOT NULL THEN
-      UPDATE public.posts SET shares_count = GREATEST(shares_count - 1, 0) WHERE id = OLD.quoted_post_id;
     END IF;
   END IF;
   RETURN NULL;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
-DROP TRIGGER IF EXISTS update_shares_count_on_repost ON public.reposts;
-CREATE TRIGGER update_shares_count_on_repost
-  AFTER INSERT OR DELETE ON public.reposts
-  FOR EACH ROW EXECUTE FUNCTION public.handle_share_count();
+DROP TRIGGER IF EXISTS tr_update_likes ON public.post_likes;
+CREATE TRIGGER tr_update_likes AFTER INSERT OR DELETE ON public.post_likes FOR EACH ROW EXECUTE FUNCTION public.handle_counters();
 
-DROP TRIGGER IF EXISTS update_shares_count_on_quote ON public.posts;
-CREATE TRIGGER update_shares_count_on_quote
-  AFTER INSERT OR DELETE ON public.posts
-  FOR EACH ROW EXECUTE FUNCTION public.handle_share_count();
+DROP TRIGGER IF EXISTS tr_update_comments ON public.comments;
+CREATE TRIGGER tr_update_comments AFTER INSERT OR DELETE ON public.comments FOR EACH ROW EXECUTE FUNCTION public.handle_counters();
 
--- FUNC 5: Handle Account Deletion (Purge auth.users on profile delete)
-CREATE OR REPLACE FUNCTION public.proc_delete_account()
+DROP TRIGGER IF EXISTS tr_update_reposts ON public.reposts;
+CREATE TRIGGER tr_update_reposts AFTER INSERT OR DELETE ON public.reposts FOR EACH ROW EXECUTE FUNCTION public.handle_counters();
+
+-- FUNC 3: AUTOMATED NOTIFICATIONS
+CREATE OR REPLACE FUNCTION public.handler_create_notification()
 RETURNS TRIGGER AS $$
+DECLARE
+  target_user_id UUID;
 BEGIN
-    DELETE FROM auth.users WHERE id = OLD.id;
-    RETURN OLD;
+  IF TG_TABLE_NAME = 'post_likes' THEN
+    SELECT user_id INTO target_user_id FROM public.posts WHERE id = NEW.post_id;
+    IF target_user_id != NEW.user_id THEN
+      INSERT INTO public.notifications (user_id, type, from_user_id, post_id)
+      VALUES (target_user_id, 'like', NEW.user_id, NEW.post_id) ON CONFLICT DO NOTHING;
+    END IF;
+  ELSIF TG_TABLE_NAME = 'follows' THEN
+    IF NEW.following_id != NEW.follower_id THEN
+      INSERT INTO public.notifications (user_id, type, from_user_id)
+      VALUES (NEW.following_id, 'follow', NEW.follower_id) ON CONFLICT DO NOTHING;
+    END IF;
+  ELSIF TG_TABLE_NAME = 'reposts' THEN
+    SELECT user_id INTO target_user_id FROM public.posts WHERE id = NEW.original_post_id;
+    IF target_user_id != NEW.user_id THEN
+      INSERT INTO public.notifications (user_id, type, from_user_id, post_id)
+      VALUES (target_user_id, 'repost', NEW.user_id, NEW.original_post_id) ON CONFLICT DO NOTHING;
+    END IF;
+  ELSIF TG_TABLE_NAME = 'comments' THEN
+    SELECT user_id INTO target_user_id FROM public.posts WHERE id = NEW.post_id;
+    IF target_user_id != NEW.user_id THEN
+      INSERT INTO public.notifications (user_id, type, from_user_id, post_id, comment_id)
+      VALUES (target_user_id, 'comment', NEW.user_id, NEW.post_id, NEW.id) ON CONFLICT DO NOTHING;
+    END IF;
+  END IF;
+  RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
-DROP TRIGGER IF EXISTS on_profile_deleted ON public.profiles;
-CREATE TRIGGER on_profile_deleted
-    AFTER DELETE ON public.profiles
-    FOR EACH ROW EXECUTE FUNCTION public.proc_delete_account();
+DROP TRIGGER IF EXISTS tr_notify_like ON public.post_likes;
+CREATE TRIGGER tr_notify_like AFTER INSERT ON public.post_likes FOR EACH ROW EXECUTE FUNCTION handler_create_notification();
 
--- ============================================
--- INDEXES
--- ============================================
-CREATE INDEX IF NOT EXISTS idx_posts_user_id ON public.posts(user_id);
-CREATE INDEX IF NOT EXISTS idx_posts_created_at ON public.posts(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_post_likes_post_id ON public.post_likes(post_id);
-CREATE INDEX IF NOT EXISTS idx_post_likes_user_id ON public.post_likes(user_id);
-CREATE INDEX IF NOT EXISTS idx_follows_follower_id ON public.follows(follower_id);
-CREATE INDEX IF NOT EXISTS idx_follows_following_id ON public.follows(following_id);
-CREATE INDEX IF NOT EXISTS idx_comments_post_id ON public.comments(post_id);
-CREATE INDEX IF NOT EXISTS idx_comments_user_id ON public.comments(user_id);
-CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON public.notifications(user_id);
-CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON public.notifications(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_reposts_user_id ON public.reposts(user_id);
-CREATE INDEX IF NOT EXISTS idx_reposts_post_id ON public.reposts(original_post_id);
+DROP TRIGGER IF EXISTS tr_notify_follow ON public.follows;
+CREATE TRIGGER tr_notify_follow AFTER INSERT ON public.follows FOR EACH ROW EXECUTE FUNCTION handler_create_notification();
+
+DROP TRIGGER IF EXISTS tr_notify_repost ON public.reposts;
+CREATE TRIGGER tr_notify_repost AFTER INSERT ON public.reposts FOR EACH ROW EXECUTE FUNCTION handler_create_notification();
+
+DROP TRIGGER IF EXISTS tr_notify_comment ON public.comments;
+CREATE TRIGGER tr_notify_comment AFTER INSERT ON public.comments FOR EACH ROW EXECUTE FUNCTION handler_create_notification();
+
+-- =========================================================================
+-- REALTIME CONFIGURATION
+-- =========================================================================
+DO $$ 
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    CREATE PUBLICATION supabase_realtime;
+  END IF;
+END $$;
+
+ALTER PUBLICATION supabase_realtime DROP TABLE IF EXISTS public.posts, public.comments, public.notifications, public.profiles, public.post_likes;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.posts, public.comments, public.notifications, public.profiles, public.post_likes;
+
+ALTER TABLE public.posts REPLICA IDENTITY FULL;
+ALTER TABLE public.comments REPLICA IDENTITY FULL;
+ALTER TABLE public.notifications REPLICA IDENTITY FULL;
+ALTER TABLE public.profiles REPLICA IDENTITY FULL;
 
 -- ============================================
 -- STORAGE CONFIGURATION
 -- ============================================
-INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-VALUES ('avatars', 'avatars', true, 5242880, ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
-ON CONFLICT (id) DO NOTHING;
+INSERT INTO storage.buckets (id, name, public) VALUES ('avatars', 'avatars', true) ON CONFLICT (id) DO NOTHING;
 
 DROP POLICY IF EXISTS "avatars_select_public" ON storage.objects;
 DROP POLICY IF EXISTS "avatars_insert_auth" ON storage.objects;
-DROP POLICY IF EXISTS "avatars_update_auth" ON storage.objects;
 
 CREATE POLICY "avatars_select_public" ON storage.objects FOR SELECT USING (bucket_id = 'avatars');
 CREATE POLICY "avatars_insert_auth" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'avatars' AND auth.role() = 'authenticated');
-CREATE POLICY "avatars_update_auth" ON storage.objects FOR UPDATE USING (bucket_id = 'avatars' AND auth.uid()::text = (storage.foldername(name))[1]);
-
--- Final Sanity Check for content length
-ALTER TABLE public.comments DROP CONSTRAINT IF EXISTS content_length;
-ALTER TABLE public.comments ADD CONSTRAINT content_length CHECK (char_length(content) <= 512);
--- ============================================
--- DATA INTEGRITY - RECOUNT COMMENTS
--- ============================================
-UPDATE public.posts p
-SET comments_count = (
-  SELECT count(*)
-  FROM public.comments c
-  WHERE c.post_id = p.id AND c.is_deleted = false
-);
-
--- ============================================
--- DATA INTEGRITY - RECOUNT SHARES/QUOTES
--- ============================================
-UPDATE public.posts p
-SET shares_count = (
-  (SELECT count(*) FROM public.reposts r WHERE r.original_post_id = p.id)
-  +
-  (SELECT count(*) FROM public.posts q WHERE q.quoted_post_id = p.id AND q.is_deleted = false)
-);

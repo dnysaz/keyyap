@@ -288,15 +288,15 @@ CREATE TRIGGER tr_notify_comment AFTER INSERT ON public.comments FOR EACH ROW EX
 -- =========================================================================
 -- REALTIME CONFIGURATION
 -- =========================================================================
-DO $$ 
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
-    CREATE PUBLICATION supabase_realtime;
-  END IF;
-END $$;
+-- Cleanest way to refresh: Drop existing and recreate for all tables
+DROP PUBLICATION IF EXISTS supabase_realtime;
 
-ALTER PUBLICATION supabase_realtime DROP TABLE IF EXISTS public.posts, public.comments, public.notifications, public.profiles, public.post_likes;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.posts, public.comments, public.notifications, public.profiles, public.post_likes;
+CREATE PUBLICATION supabase_realtime FOR TABLE 
+  public.posts, 
+  public.comments, 
+  public.notifications, 
+  public.profiles, 
+  public.post_likes;
 
 ALTER TABLE public.posts REPLICA IDENTITY FULL;
 ALTER TABLE public.comments REPLICA IDENTITY FULL;

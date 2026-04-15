@@ -3,6 +3,7 @@ import { Inter, Poppins, Pacifico } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthProvider";
 import NotificationHandler from "@/components/NotificationHandler";
+import NotificationModal from "@/components/NotificationModal";
 
 const inter = Inter({
   variable: "--font-inter",

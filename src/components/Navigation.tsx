@@ -9,7 +9,7 @@ import { useNotificationStore } from '@/stores/notificationStore'
 export default function Navigation() {
   const pathname = usePathname()
   const { user, profile } = useAuthStore()
-  const { unreadCount } = useNotificationStore()
+  const { unreadCount, setIsOpen } = useNotificationStore()
 
   const isActive = (path: string) => pathname === path
 
@@ -25,14 +25,23 @@ export default function Navigation() {
         <Link href="/create">
           <Pencil className="w-7 h-7 text-gray-500" />
         </Link>
-        <Link href="/notifications" className={`relative ${isActive('/notifications') ? 'text-gray-900' : 'text-gray-500'}`}>
+        <button 
+          onClick={() => {
+            if (user) {
+              setIsOpen(true)
+            } else {
+              window.location.href = '/login'
+            }
+          }}
+          className={`relative ${isActive('/notifications') ? 'text-gray-900' : 'text-gray-500'}`}
+        >
           <Bell className="w-7 h-7" />
           {unreadCount > 0 && (
             <div className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] bg-primary text-white text-[10px] font-bold rounded-full border-2 border-white flex items-center justify-center px-1 animate-in zoom-in duration-200">
               {unreadCount > 99 ? '99+' : unreadCount}
             </div>
           )}
-        </Link>
+        </button>
         <Link href={user ? `/u/${profile?.username || 'me'}` : '/login'} className={isActive('/login') ? 'text-gray-900 font-bold' : 'text-gray-500'}>
           <User className="w-7 h-7" />
         </Link>

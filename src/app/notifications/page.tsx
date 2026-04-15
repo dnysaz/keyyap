@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Home, Search, Heart, LogOut, User, Bell, MessageCircle, Repeat, ArrowLeft, Eye, X } from 'lucide-react'
@@ -11,6 +11,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/authStore'
 import { useNotificationStore } from '@/stores/notificationStore'
 import AuthGuard from '@/components/AuthGuard'
+import { NotificationSkeleton } from '@/components/Skeleton'
 
 export default function NotificationsPage() {
   const router = useRouter()
@@ -55,6 +56,8 @@ export default function NotificationsPage() {
     setLoading(false)
   }
 
+  const observerTarget = useRef<HTMLDivElement>(null)
+
   const loadMore = () => {
     if (!loading && hasMore) {
       const nextPage = page + 1
@@ -64,18 +67,20 @@ export default function NotificationsPage() {
   }
 
   useEffect(() => {
-    const handleScroll = () => {
-      if (
-        window.innerHeight + document.documentElement.scrollTop >= document.documentElement.offsetHeight - 800 &&
-        hasMore &&
-        !loading
-      ) {
-        loadMore()
-      }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loading) {
+          loadMore()
+        }
+      },
+      { threshold: 0.1 }
+    )
+
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current)
     }
 
-    window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
+    return () => observer.disconnect()
   }, [hasMore, loading, page])
 
   async function markAllAsRead() {
@@ -115,12 +120,16 @@ export default function NotificationsPage() {
           <div className="flex w-full max-w-[1050px]">
             <main className="flex-1 max-w-2xl border-x border-gray-100 min-h-screen min-w-0">
               <div className="sticky top-0 bg-white/80 backdrop-blur-md z-10 px-4 py-3 border-b border-gray-50 flex items-center justify-between">
-                <h1 className="text-xl font-bold">Notifications</h1>
+                <button onClick={() => router.back()} className="text-gray-500 hover:bg-gray-100 p-2 rounded-full transition-colors flex shrink-0">
+                  <X className="w-6 h-6" />
+                </button>
+                <h1 className="text-lg font-bold">Notifications</h1>
+                <div className="w-10" />
               </div>
 
               <div className="pb-16">
                 {loading && page === 0 ? (
-                  <div className="p-8 text-center text-gray-500">Loading notifications...</div>
+                  <NotificationSkeleton count={8} />
                 ) : notifications.length === 0 ? (
                   <div className="p-8 text-center text-gray-500">
                     <Bell className="w-12 h-12 mx-auto mb-4 opacity-20" />
@@ -181,10 +190,10 @@ export default function NotificationsPage() {
                         </div>
                       ))}
                     </div>
-                    {loading && (
-                      <div className="py-8 text-center text-gray-500 text-sm animate-pulse">
-                        Loading more notifications...
-                      </div>
+                    {/* Invisible div for Intersection Observer */}
+                    <div ref={observerTarget} className="h-4" />
+                    {loading && hasMore && (
+                      <NotificationSkeleton count={3} />
                     )}
                   </>
                 )}

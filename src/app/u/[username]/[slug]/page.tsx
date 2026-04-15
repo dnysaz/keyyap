@@ -163,9 +163,7 @@ export default function PostDetailPage() {
   const [isLoadingRepost, setIsLoadingRepost] = useState(false)
   const commentInputRef = useRef<HTMLTextAreaElement>(null)
 
-  useEffect(() => {
-    useAuthStore.getState().fetchUser()
-  }, [])
+  // Auth is handled by AuthProvider — no need to call fetchUser() here
 
   useEffect(() => {
     let isMounted = true
@@ -237,77 +235,71 @@ export default function PostDetailPage() {
     return () => { isMounted = false }
   }, [username, slug, user])
 
+  // Fetch comments when post loads
   useEffect(() => {
-    async function fetchComments() {
-      if (!post) return
-      const { data: commentsData } = await supabase
-        .from('comments')
-        .select('*, profiles(username, full_name, avatar_url)')
-        .eq('post_id', post.id)
-        .eq('is_deleted', false)
-        .order('created_at', { ascending: true })
+    if (!post?.id) return
+    fetchCommentsForPost(post.id)
+  }, [post?.id])
 
-      const formattedComments = (commentsData || []).map((c: any) => ({
-        ...c,
-        profiles: Array.isArray(c.profiles) ? c.profiles[0] : c.profiles
-      }))
+  async function fetchCommentsForPost(postId: string) {
+    const { data: commentsData } = await supabase
+      .from('comments')
+      .select('*, profiles(username, full_name, avatar_url)')
+      .eq('post_id', postId)
+      .eq('is_deleted', false)
+      .order('created_at', { ascending: true })
 
-      setComments(buildCommentTree(formattedComments))
-      setCommentCount(formattedComments.length)
+    const formattedComments = (commentsData || []).map((c: any) => ({
+      ...c,
+      profiles: Array.isArray(c.profiles) ? c.profiles[0] : c.profiles
+    }))
 
-      const linkMetaMap: Record<string, LinkMetadata[]> = {}
-      for (const comment of formattedComments) {
-        const urls = comment.content.match(/(https?:\/\/[^\s]+)/g) || []
-        if (urls.length > 0) {
-          try {
-            const response = await fetch(`/api/link-preview?urls=${encodeURIComponent(urls.join(','))}`)
-            const data = await response.json()
-            if (data?.links) linkMetaMap[comment.id] = data.links
-          } catch { }
-        }
+    setComments(buildCommentTree(formattedComments))
+    setCommentCount(formattedComments.length)
+
+    const linkMetaMap: Record<string, LinkMetadata[]> = {}
+    for (const comment of formattedComments) {
+      const urls = comment.content.match(/(https?:\/\/[^\s]+)/g) || []
+      if (urls.length > 0) {
+        try {
+          const response = await fetch(`/api/link-preview?urls=${encodeURIComponent(urls.join(','))}`)
+          const data = await response.json()
+          if (data?.links) linkMetaMap[comment.id] = data.links
+        } catch { }
       }
-      setCommentLinkMetas(linkMetaMap)
     }
-    if (post) fetchComments()
+    setCommentLinkMetas(linkMetaMap)
+  }
 
-    // Real-time subscription for comments
+  // Real-time subscription for comments — separate effect to avoid re-subscribing on every comment change
+  useEffect(() => {
+    if (!post?.id) return
+
+    const postId = post.id
+
     const channel = supabase
-      .channel(`post-comments-${post?.id}`)
+      .channel(`realtime-comments-${postId}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'comments',
-          filter: `post_id=eq.${post?.id}`
+          filter: `post_id=eq.${postId}`
         },
-        async (payload) => {
-          // If a new comment is inserted or deleted, the easiest way to maintain the tree
-          // and joined profile data is to re-fetch.
-          // For high-performance, we'd want to handle this manually, but re-fetching ensures
-          // profile data is always correct.
-          if (payload.eventType === 'INSERT') {
-             // Instead of full refetch, we could just fetch the newest one and add it
-             // but re-fetch handles replies tree building correctly.
-             fetchComments()
-          } else if (payload.eventType === 'DELETE') {
-             setComments(prev => {
-               // Simple filter won't work perfectly for nested tree, 
-               // but fetchComments() will handle it.
-               fetchComments()
-               return prev
-             })
-          } else if (payload.eventType === 'UPDATE') {
-             fetchComments()
-          }
+        () => {
+          // Re-fetch all comments on any change to maintain correct tree structure & profile data
+          fetchCommentsForPost(postId)
         }
       )
-      .subscribe()
+      .subscribe((status) => {
+        console.log(`Comments realtime status for ${postId}:`, status)
+      })
 
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [post])
+  }, [post?.id])
 
   useEffect(() => {
     async function fetchLinkMetas() {
@@ -390,20 +382,10 @@ export default function PostDetailPage() {
     setNewComment('')
     setReplyingTo(null)
     setCommentCount(prev => prev + 1)
-
-    const { data: commentsData } = await supabase
-      .from('comments')
-      .select('*, profiles(username, full_name, avatar_url)')
-      .eq('post_id', post.id)
-      .eq('is_deleted', false)
-      .order('created_at', { ascending: true })
-
-    const formattedComments = (commentsData || []).map((c: any) => ({
-      ...c,
-      profiles: Array.isArray(c.profiles) ? c.profiles[0] : c.profiles
-    }))
-    setComments(buildCommentTree(formattedComments))
     setPost((p: any) => ({ ...p, comments_count: (p?.comments_count || 0) + 1 }))
+
+    // Re-fetch comments using the shared function (also triggered by realtime, but immediate fetch ensures no delay)
+    await fetchCommentsForPost(post.id)
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {

@@ -133,31 +133,48 @@ export default function CreatePage() {
     setLoading(true)
     setError('')
 
-    const { data: { user: currentUser } } = await supabase.auth.getUser()
-    if (!currentUser) {
-      setError('Session expired. Please login again.')
+    try {
+      // Force refresh the session first — prevents stale token after idle
+      const { error: refreshError } = await supabase.auth.refreshSession()
+      if (refreshError) {
+        console.error('Session refresh failed:', refreshError)
+        setError('Your session has expired. Redirecting to login...')
+        setLoading(false)
+        setTimeout(() => router.push('/login'), 1500)
+        return
+      }
+
+      const { data: { user: currentUser } } = await supabase.auth.getUser()
+      if (!currentUser) {
+        setError('Session expired. Please login again.')
+        setLoading(false)
+        setTimeout(() => router.push('/login'), 1500)
+        return
+      }
+
+      const tags = hashtags
+        .split(',')
+        .map((t) => t.trim().toLowerCase().replace(/^#/, ''))
+        .filter((t) => t.length > 0)
+
+      const { error: postError } = await supabase.from('posts').insert({
+        user_id: currentUser.id,
+        content: content.trim(),
+        hashtags: tags.length > 0 ? tags : null,
+      })
+
+      if (postError) {
+        setError(postError.message)
+        setLoading(false)
+        return
+      }
+
+      router.push('/')
+    } catch (err) {
+      console.error('Submit error:', err)
+      setError('Something went wrong. Please try again.')
       setLoading(false)
-      return
     }
-
-    const tags = hashtags
-      .split(',')
-      .map((t) => t.trim().toLowerCase().replace(/^#/, ''))
-      .filter((t) => t.length > 0)
-
-    const { error: postError } = await supabase.from('posts').insert({
-      user_id: currentUser.id,
-      content: content.trim(),
-      hashtags: tags.length > 0 ? tags : null,
-    })
-
-    if (postError) {
-      setError(postError.message)
-      setLoading(false)
-      return
-    }
-
-    router.push('/')
   }
 
   return (

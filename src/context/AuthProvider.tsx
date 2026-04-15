@@ -15,23 +15,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // 1. Immediately check session from cache (fast!)
     async function initAuth() {
       try {
-        const { data: { session } } = await supabase.auth.getSession()
+        // Use getUser() for server-verified session instead of getSession() which can be stale
+        const { data: { user: authUser }, error } = await supabase.auth.getUser()
         
-        if (session?.user) {
-          setUser({ id: session.user.id, email: session.user.email! })
+        if (authUser && !error) {
+          setUser({ id: authUser.id, email: authUser.email! })
           
           const { data: profile } = await supabase
             .from('profiles')
             .select('*')
-            .eq('id', session.user.id)
+            .eq('id', authUser.id)
             .single()
 
           if (profile) {
             setProfile(profile)
           }
+        } else {
+          // No valid session — clear state
+          setUser(null)
+          setProfile(null)
         }
       } catch (err) {
         console.error('Auth init error:', err)
+        setUser(null)
+        setProfile(null)
       } finally {
         // Always mark loading as false, even for guests
         useAuthStore.setState({ loading: false })
@@ -40,9 +47,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     initAuth()
 
-    // 2. Listen for future auth changes (login/logout)
+    // 2. Listen for future auth changes (login/logout/token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'INITIAL_SESSION') return // Already handled above
+
+      if (event === 'TOKEN_REFRESHED' && session?.user) {
+        // Token was refreshed — update user state to keep session alive
+        setUser({ id: session.user.id, email: session.user.email! })
+        return
+      }
 
       if (session?.user) {
         setUser({ id: session.user.id, email: session.user.email! })

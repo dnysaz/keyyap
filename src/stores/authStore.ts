@@ -34,20 +34,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
   fetchUser: async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session?.user) {
-        set({ user: { id: session.user.id, email: session.user.email! } })
+      // Use getUser() for a server-verified check instead of getSession() which reads from stale cache
+      const { data: { user: authUser }, error } = await supabase.auth.getUser()
+      if (authUser && !error) {
+        set({ user: { id: authUser.id, email: authUser.email! } })
         const { data: profile } = await supabase
           .from('profiles')
           .select('*')
-          .eq('id', session.user.id)
+          .eq('id', authUser.id)
           .single()
         if (profile) {
           set({ profile })
         }
+      } else {
+        set({ user: null, profile: null })
       }
     } catch (err) {
       console.error('fetchUser error:', err)
+      set({ user: null, profile: null })
     } finally {
       set({ loading: false })
     }

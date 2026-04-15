@@ -12,26 +12,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (initialized.current) return
     initialized.current = true
 
-    // 1. Immediately check session from cache (fast!)
     async function initAuth() {
       try {
-        // Use getUser() for server-verified session instead of getSession() which can be stale
-        const { data: { user: authUser }, error } = await supabase.auth.getUser()
+        // Use getSession() for fast initial load (reads from localStorage cache)
+        const { data: { session } } = await supabase.auth.getSession()
         
-        if (authUser && !error) {
-          setUser({ id: authUser.id, email: authUser.email! })
+        if (session?.user) {
+          setUser({ id: session.user.id, email: session.user.email! })
           
           const { data: profile } = await supabase
             .from('profiles')
             .select('*')
-            .eq('id', authUser.id)
+            .eq('id', session.user.id)
             .single()
 
           if (profile) {
             setProfile(profile)
           }
         } else {
-          // No valid session — clear state
           setUser(null)
           setProfile(null)
         }
@@ -47,13 +45,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     initAuth()
 
-    // 2. Listen for future auth changes (login/logout/token refresh)
+    // Listen for all auth changes (login, logout, token refresh, etc.)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'INITIAL_SESSION') return // Already handled above
 
-      if (event === 'TOKEN_REFRESHED' && session?.user) {
-        // Token was refreshed — update user state to keep session alive
-        setUser({ id: session.user.id, email: session.user.email! })
+      if (event === 'TOKEN_REFRESHED') {
+        // Token was silently refreshed — keep user state alive
+        if (session?.user) {
+          setUser({ id: session.user.id, email: session.user.email! })
+        }
+        return
+      }
+
+      if (event === 'SIGNED_OUT') {
+        setUser(null)
+        setProfile(null)
+        useAuthStore.setState({ loading: false })
         return
       }
 

@@ -169,8 +169,6 @@ export default function PostDetailPage() {
     let isMounted = true
 
     async function fetchPost() {
-      if (!isMounted) return
-
       const parts = slug.split('-')
       const idPrefix = parts[parts.length - 1]
 
@@ -184,6 +182,7 @@ export default function PostDetailPage() {
           .limit(100)
 
         if (postError) throw postError
+        if (!isMounted) return
 
         const matchedPost = posts?.find((p: any) => {
           const expectedSlug = getSlug(p.id, p.content)
@@ -193,7 +192,7 @@ export default function PostDetailPage() {
         })
 
         if (!matchedPost) {
-          setLoading(false)
+          if (isMounted) setLoading(false)
           return
         }
 
@@ -207,6 +206,8 @@ export default function PostDetailPage() {
             ; (matchedPost as any).quoted_post = qpData || null
         }
 
+        if (!isMounted) return
+
         const profileData = matchedPost.profiles
         setProfile(profileData)
         setPost(matchedPost)
@@ -214,15 +215,19 @@ export default function PostDetailPage() {
         setRepostCount(matchedPost.shares_count ?? 0)
         setCommentCount(matchedPost.comments_count ?? 0)
 
-        if (user) {
+        // Check like/repost/follow status — use current user ID from store
+        const currentUserId = useAuthStore.getState().user?.id
+        if (currentUserId) {
           const [likeStatus, repostStatus, followStatus] = await Promise.all([
-            supabase.from('post_likes').select('*').eq('user_id', user.id).eq('post_id', matchedPost.id).maybeSingle(),
-            supabase.from('reposts').select('*').eq('user_id', user.id).eq('original_post_id', matchedPost.id).maybeSingle(),
-            supabase.from('follows').select('*').eq('follower_id', user.id).eq('following_id', profileData.id).maybeSingle()
+            supabase.from('post_likes').select('*').eq('user_id', currentUserId).eq('post_id', matchedPost.id).maybeSingle(),
+            supabase.from('reposts').select('*').eq('user_id', currentUserId).eq('original_post_id', matchedPost.id).maybeSingle(),
+            supabase.from('follows').select('*').eq('follower_id', currentUserId).eq('following_id', profileData.id).maybeSingle()
           ])
-          setIsLiked(!!likeStatus.data)
-          setIsReposted(!!repostStatus.data)
-          setIsFollowing(!!followStatus.data)
+          if (isMounted) {
+            setIsLiked(!!likeStatus.data)
+            setIsReposted(!!repostStatus.data)
+            setIsFollowing(!!followStatus.data)
+          }
         }
       } catch (err) {
         console.error('Fetch post error:', err)
@@ -233,7 +238,7 @@ export default function PostDetailPage() {
 
     if (username && slug) fetchPost()
     return () => { isMounted = false }
-  }, [username, slug, user])
+  }, [username, slug])
 
   // Fetch comments when post loads
   useEffect(() => {

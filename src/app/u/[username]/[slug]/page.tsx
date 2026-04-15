@@ -506,8 +506,34 @@ export default function PostDetailPage() {
     } finally { setIsLoadingRepost(false) }
   }
 
+  const [followingUsernames, setFollowingUsernames] = useState<string[]>([])
+
+  useEffect(() => {
+    async function fetchFollowing() {
+      if (!user) return
+      const { data } = await supabase
+        .from('follows')
+        .select('following:following_id(username)')
+        .eq('follower_id', user.id)
+      
+      if (data) {
+        setFollowingUsernames(data.map((f: any) => f.following.username))
+      }
+    }
+    fetchFollowing()
+  }, [user])
+
   function formatCommentLinkText(content: string) {
-    let formatted = content.replace(/@(\w+)/g, '<span class="text-primary font-medium">@$1</span>')
+    // 1. Handle Mentions - Only link if followed
+    let formatted = content.replace(/@(\w+)/g, (match, username) => {
+      const isFollowing = followingUsernames.includes(username)
+      if (isFollowing) {
+        return `<a href="/u/${username}" class="text-primary font-bold hover:underline">@${username}</a>`
+      }
+      return `<span class="text-primary font-medium">@${username}</span>`
+    })
+
+    // 2. Handle URLs
     formatted = formatted.replace(/(https?:\/\/[^\s]+)/g, (url) => {
       const truncated = url.length > 30 ? url.substring(0, 27) + '...' : url
       return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:underline break-all inline font-medium">${truncated}</a>`

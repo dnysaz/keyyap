@@ -34,6 +34,8 @@ export const viewport: Viewport = {
   userScalable: false,
 };
 
+import GlobalAuthGuard from "@/components/GlobalAuthGuard";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -54,8 +56,10 @@ export default function RootLayout({
           </div>
         </div>
         <AuthProvider>
-          <NotificationHandler />
-          {children}
+          <GlobalAuthGuard>
+            <NotificationHandler />
+            {children}
+          </GlobalAuthGuard>
         </AuthProvider>
       </body>
     </html>

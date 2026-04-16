@@ -159,8 +159,6 @@ export default function PostCard({ post, currentUserId, onLikeChange, reposterUs
   }
 
   const handleDelete = async () => {
-    const confirmed = window.confirm('Are you sure you want to delete this post? This action cannot be undone.')
-    if (!confirmed) return
     try {
       const { error } = await supabase.from('posts').update({ is_deleted: true }).eq('id', post.id)
       if (error) throw error
@@ -224,12 +222,21 @@ export default function PostCard({ post, currentUserId, onLikeChange, reposterUs
             </div>
             
             <div className="relative" ref={menuRef}>
-              <button 
-                onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu) }} 
-                className="p-2 -mr-2 hover:bg-primary/10 hover:text-primary rounded-full transition-colors opacity-0 group-hover:opacity-100"
-              >
-                <MoreVertical className="w-4 h-4" />
-              </button>
+              {(currentUserId === post.user_id) ? (
+                <button 
+                  onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu) }} 
+                  className="p-2 -mr-2 hover:bg-primary/10 hover:text-primary rounded-full transition-colors text-gray-400"
+                >
+                  <MoreVertical className="w-4 h-4" />
+                </button>
+              ) : (
+                <button 
+                  onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu) }} 
+                  className="p-2 -mr-2 hover:bg-primary/10 hover:text-primary rounded-full transition-colors opacity-0 group-hover:opacity-100 text-gray-400"
+                >
+                  <MoreVertical className="w-4 h-4" />
+                </button>
+              )}
               {showMenu && (
                 <div className="absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-2xl border border-gray-100 py-1 z-30 overflow-hidden ring-1 ring-black/5 animate-in fade-in zoom-in-95 duration-100">
                   {currentUserId === post.user_id && (

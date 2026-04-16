@@ -296,8 +296,8 @@ export default function Feed({ isGlobal = false }: FeedProps) {
         page === 0 ? (
           <FeedSkeleton count={3} />
         ) : (
-          <div className="py-8 text-center text-gray-500 text-sm animate-pulse">
-            Loading more posts...
+          <div className="py-12 flex justify-center">
+            <div className="spinner border-primary/20 border-t-primary w-6 h-6" />
           </div>
         )
       )}

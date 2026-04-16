@@ -428,9 +428,9 @@ export default function CreatePage() {
                   <button
                     type="submit"
                     disabled={loading || isOverLimit || !content.trim()}
-                    className="w-full bg-primary text-white py-4 rounded-full font-black text-lg hover:shadow-lg hover:shadow-primary/20 hover:-translate-y-0.5 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none mt-4"
+                    className="w-full bg-primary text-white py-4 rounded-full font-black text-lg hover:shadow-lg hover:shadow-primary/20 hover:-translate-y-0.5 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none mt-4 flex items-center justify-center min-h-[60px]"
                   >
-                    {loading ? 'Posting...' : 'Create Post'}
+                    {loading ? <div className="spinner" /> : 'Create Post'}
                   </button>
                 </form>
               </div>

@@ -227,9 +227,9 @@ export default function RepostModal({ isOpen, onClose, originalPost, onSuccess }
           <button
             onClick={handleRepost}
             disabled={loading || isOverLimit}
-            className="bg-primary text-white px-6 py-2 rounded-full font-bold text-[15px] hover:opacity-90 transition-all disabled:opacity-50 shadow-md"
+            className="bg-primary text-white w-[120px] h-[40px] rounded-full font-bold text-[15px] hover:opacity-90 transition-all disabled:opacity-50 shadow-md flex items-center justify-center"
           >
-            {loading ? 'Reposting...' : 'Post'}
+            {loading ? <div className="spinner border-2 w-4 h-4" /> : 'Post'}
           </button>
         </div>
 

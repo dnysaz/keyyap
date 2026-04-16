@@ -225,7 +225,23 @@ export default function EditPage() {
     }
   }
 
-  if (loading) return <div className="min-h-screen bg-white flex items-center justify-center font-bold text-gray-300 animate-pulse tracking-[0.2em] uppercase text-xs">Loading Yap...</div>
+  if (loading) return (
+    <div className="min-h-screen bg-white">
+      <Sidebar />
+      <div className="lg:ml-[68px] xl:ml-[275px] flex justify-center h-screen">
+        <div className="w-full max-w-[1050px] flex">
+          <main className="flex-1 max-w-2xl border-x border-gray-100 flex flex-col p-8 gap-6">
+            <div className="h-8 w-1/3 bg-gray-50 rounded-lg animate-pulse" />
+            <div className="h-48 w-full bg-gray-50 rounded-2xl animate-pulse" />
+            <div className="h-12 w-full bg-gray-50 rounded-full animate-pulse mt-auto" />
+          </main>
+          <div className="hidden xl:block w-[350px] p-8 gap-4 flex flex-col">
+            <div className="h-[400px] w-full bg-gray-50 rounded-2xl animate-pulse" />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
 
   const charCount = content.length
   const isOverLimit = charCount > MAX_CHARS
@@ -398,15 +414,13 @@ export default function EditPage() {
                       )}
                     </div>
 
-                    <div className="mt-8">
                       <button
                         onClick={handleUpdate}
                         disabled={saving || isOverLimit || !content.trim()}
-                        className="w-full bg-primary text-white py-4 rounded-full font-black text-lg hover:shadow-lg hover:shadow-primary/20 hover:-translate-y-0.5 transition-all active:scale-[0.98] disabled:opacity-50 shadow-lg shadow-primary/20"
+                        className="w-full bg-primary text-white py-4 rounded-full font-black text-lg hover:shadow-lg hover:shadow-primary/20 hover:-translate-y-0.5 transition-all active:scale-[0.98] disabled:opacity-50 shadow-lg shadow-primary/20 flex items-center justify-center min-h-[60px]"
                       >
-                        {saving ? 'Updating...' : 'Save Changes'}
+                        {saving ? <div className="spinner" /> : 'Save Changes'}
                       </button>
-                    </div>
                   </div>
                 </form>
               </div>

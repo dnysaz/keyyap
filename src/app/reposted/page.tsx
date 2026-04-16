@@ -187,8 +187,8 @@ export default function RepostedPage() {
                       />
                     ))}
                     {loading && (
-                      <div className="py-8 text-center text-gray-500 text-sm animate-pulse">
-                        Sinking more reposts...
+                      <div className="py-12 flex justify-center">
+                        <div className="spinner border-primary/20 border-t-primary w-6 h-6" />
                       </div>
                     )}
                   </>

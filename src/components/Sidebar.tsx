@@ -28,7 +28,10 @@ export default function Sidebar() {
     <aside className="hidden lg:flex flex-col w-[72px] xl:w-[260px] h-screen fixed top-0 left-0 xl:left-[calc(50%-670px)] py-4 px-2 z-30 bg-white items-end">
       <div className="mb-4 px-3 pt-2 flex justify-end w-full">
         <Link href="/" className="no-underline group flex items-baseline">
-          <span className="text-2xl xl:text-3xl font-black text-gray-900 hover:opacity-80 transition-opacity tracking-tighter">Key</span>
+          <span className="text-2xl xl:text-3xl font-black text-gray-900 hover:opacity-80 transition-opacity tracking-tighter">
+            <span className="xl:hidden">K</span>
+            <span className="hidden xl:inline">Key</span>
+          </span>
           <span className="text-2xl xl:text-3xl font-normal text-primary hover:opacity-80 transition-opacity tracking-normal -ml-0.5" style={{ fontFamily: 'var(--font-pacifico)' }}>Yap!</span>
         </Link>
       </div>

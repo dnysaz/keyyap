@@ -160,8 +160,21 @@ export default function PostCard({ post, currentUserId, onLikeChange, reposterUs
 
   const handleDelete = async () => {
     try {
-      const { error } = await supabase.from('posts').update({ is_deleted: true }).eq('id', post.id)
-      if (error) throw error
+      const { error } = await supabase
+        .from('posts')
+        .update({ is_deleted: true })
+        .eq('id', post.id)
+        .eq('user_id', currentUserId) // Safety check: ensure user owns the post
+
+      if (error) {
+        if (error.code === '42501') {
+          alert('Permission denied. Please ensure you are logged in and own this post.')
+        } else {
+          throw error
+        }
+        return
+      }
+      
       window.location.reload()
     } catch (err) {
       alert('Failed to delete post.')

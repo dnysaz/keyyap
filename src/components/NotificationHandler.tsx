@@ -8,11 +8,10 @@ import { useNotificationStore } from '@/stores/notificationStore'
 export default function NotificationHandler() {
   const { user } = useAuthStore()
   const { fetchUnreadCount, incrementUnreadCount } = useNotificationStore()
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
+  const channelRef = useRef<any>(null)
 
   useEffect(() => {
     if (!user?.id) {
-      // Cleanup if user logged out
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current)
         channelRef.current = null
@@ -22,49 +21,52 @@ export default function NotificationHandler() {
 
     const userId = user.id
 
-    // Fetch initial count
-    fetchUnreadCount(userId)
+    // Delay initialization slightly to let browser settle
+    const timer = setTimeout(() => {
+      // 1. Fetch initial count
+      fetchUnreadCount(userId)
 
-    // Clean up any existing channel before creating a new one
-    if (channelRef.current) {
-      supabase.removeChannel(channelRef.current)
-      channelRef.current = null
-    }
+      // 2. Clean up before starting new
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current)
+      }
 
-    // Subscribe to real-time notifications
-    const channel = supabase
-      .channel(`realtime-notifs-${userId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${userId}`,
-        },
-        (payload) => {
-          console.log('New notification received:', payload)
-          incrementUnreadCount()
-        }
-      )
-      .subscribe((status) => {
-        console.log(`Notification realtime status for ${userId}:`, status)
-        if (status === 'CHANNEL_ERROR') {
-          // Retry after a delay
-          setTimeout(() => {
-            fetchUnreadCount(userId)
-          }, 3000)
-        }
-      })
+      // 3. Define the channel
+      const channel = supabase
+        .channel(`realtime-notifs-${userId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${userId}`,
+          },
+          (payload) => {
+            console.log('✨ New notification received:', payload)
+            incrementUnreadCount()
+            // Optionally we could fetch notifications here too for the instant feel
+          }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('✅ Realtime connected for user:', userId)
+          }
+          if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+            console.log('⚠️ Realtime connection closed/error:', status)
+          }
+        })
 
-    channelRef.current = channel
+      channelRef.current = channel
+    }, 1000)
 
-    // Also poll periodically as a fallback for realtime (every 30 seconds)
+    // Fallback polling (keep it long, e.g., 60s)
     const pollInterval = setInterval(() => {
       fetchUnreadCount(userId)
-    }, 30000)
+    }, 60000)
 
     return () => {
+      clearTimeout(timer)
       clearInterval(pollInterval)
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current)

@@ -36,7 +36,9 @@ export default function Feed({ isGlobal = false }: FeedProps) {
     
     const limit = 15
     const offset = pageNum * limit
+    const activeTab = searchParams.get('tab') || 'foryou'
     const currentUserId = useAuthStore.getState().user?.id || null
+    console.log(`🔍 Feed: Starting fetch for tab "${activeTab}", page ${pageNum}, append: ${append}, user: ${currentUserId}`)
 
     // Safety timeout for this specific fetch
     const timeoutPromise = new Promise((_, reject) => 
@@ -56,20 +58,32 @@ export default function Feed({ isGlobal = false }: FeedProps) {
           .range(offset, offset + limit - 1)
 
         if (currentUserId && !isGlobal) {
-          const { data: following } = await supabase
+          console.log('📡 Feed: Fetching following list...')
+          const { data: following, error: fError } = await supabase
             .from('follows')
             .select('following_id')
             .eq('follower_id', currentUserId)
           
+          if (fError) console.error('❌ Follows fetch error:', fError)
+          
           const followingIds = following?.map(f => f.following_id) || []
           const allowedIds = [...followingIds, currentUserId]
+          console.log(`👥 Feed: allowedIds [${allowedIds.length}] :`, allowedIds)
+          
           if (allowedIds.length > 0) {
             query = query.in('user_id', allowedIds)
           }
         }
 
+        console.log('📡 Feed: Executing posts query...')
         const { data: postsResult, error: postsError } = await query
-        if (postsError) throw postsError
+        
+        if (postsError) {
+           console.error('❌ Posts query error:', postsError)
+           throw postsError
+        }
+        
+        console.log(`✅ Feed: Received ${postsResult?.length || 0} posts from DB`)
 
         // Fetch quotes
         const quotedPostIds = (postsResult || []).map(p => (p as any).quoted_post_id).filter(id => id != null)
@@ -101,6 +115,7 @@ export default function Feed({ isGlobal = false }: FeedProps) {
 
       // Race the query against the timeout
       const finalPosts = await Promise.race([queryPromise, timeoutPromise]) as Post[]
+      console.log(`✨ Feed: Fetch complete. Final posts to render: ${finalPosts.length}`)
 
       if (append) {
         setPosts([...posts, ...finalPosts])
@@ -109,7 +124,7 @@ export default function Feed({ isGlobal = false }: FeedProps) {
       }
       setHasMore((finalPosts?.length || 0) === limit)
     } catch (err) {
-      console.error('Feed error:', err)
+      console.error('💥 Feed critical error:', err)
     } finally {
       setLoading(false)
     }

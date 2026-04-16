@@ -25,28 +25,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (session?.user) {
           const userObj = { id: session.user.id, email: session.user.email! }
           setUser(userObj)
+          
+          // CRITICAL: Set loading false now, don't wait for profile.
+          // This allows the Feed and other components to start their work immediately.
+          useAuthStore.setState({ loading: false });
 
-          try {
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', session.user.id)
-              .single()
-
-            if (profile) {
-              setProfile(profile)
+          // Fetch profile in parallel/background
+          (async () => {
+            try {
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', session.user.id)
+                .single()
+              
+              if (profile) setProfile(profile)
+            } catch (err) {
+              console.error('BG Profile Fetch Error:', err)
             }
-          } catch (err) {
-            console.error('Error fetching profile during auth change:', err)
-          }
+          })()
         } else {
           setUser(null)
           setProfile(null)
+          useAuthStore.setState({ loading: false })
         }
+      } else {
+        // Handle other possible events
+        useAuthStore.setState({ loading: false })
       }
-
-      // Mark loading as false once initial session or first meaningful event is processed
-      useAuthStore.setState({ loading: false })
     })
 
     // Safety fallback: if no event fires in 5 seconds, stop loading

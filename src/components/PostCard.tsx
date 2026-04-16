@@ -8,7 +8,6 @@ import { supabase } from '@/lib/supabase'
 import type { Post, Profile } from '@/types'
 import Avatar from './Avatar'
 import { getSlug, formatDate } from '@/lib/utils'
-import EditPostModal from './EditPostModal'
 
 interface PostCardProps {
   post: Post
@@ -57,7 +56,6 @@ export default function PostCard({ post, currentUserId, onLikeChange, reposterUs
   const [expandedVideo, setExpandedVideo] = useState<string | null>(null)
   const [showFull, setShowFull] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
-  const [showEditModal, setShowEditModal] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
   const TRUNCATE_LENGTH = 160
@@ -185,7 +183,7 @@ export default function PostCard({ post, currentUserId, onLikeChange, reposterUs
   }
 
   const handleEdit = () => {
-    setShowEditModal(true)
+    router.push(`/u/${post.profiles?.username}/${getSlug(post.id, post.content)}/edit`)
     setShowMenu(false)
   }
 
@@ -287,7 +285,7 @@ export default function PostCard({ post, currentUserId, onLikeChange, reposterUs
           {/* Hashtags */}
           {post.hashtags && Array.isArray(post.hashtags) && post.hashtags.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-2">
-              {post.hashtags.map((tag) => (
+              {post.hashtags.map((tag: string) => (
                 <Link key={tag} href={`/search?tag=${encodeURIComponent(tag)}`}>
                   <span className="text-primary text-[14px] hover:underline font-medium">#{tag}</span>
                 </Link>
@@ -506,11 +504,6 @@ export default function PostCard({ post, currentUserId, onLikeChange, reposterUs
           </div>
         </div>
       </div>
-      <EditPostModal 
-        isOpen={showEditModal} 
-        onClose={() => setShowEditModal(false)} 
-        post={post} 
-      />
     </div>
   )
 }

@@ -69,16 +69,11 @@ export default function Feed({ isGlobal = false }: FeedProps) {
         const allowedIds = [...followingIds, currentUserId].filter(Boolean) as string[]
         console.log(`👥 Feed: allowedIds [${allowedIds.length}] :`, allowedIds)
 
-        // Filter logic: Show if NOT hidden OR if the current user is a follower
+        // Filter logic: Standard Global Feed
         if (isGlobal) {
-          if (currentUserId && allowedIds.length > 0) {
-            // Important: Use .neq.true to catch both 'false' and 'NULL'
-            const followedIdsList = allowedIds.map(id => id).join(',')
-            query = query.or(`user_id.in.(${followedIdsList}),profiles.hide_from_global.neq.true`)
-          } else {
-            // Guest: only show non-hidden posts
-            query = query.filter('profiles.hide_from_global', 'neq', true)
-          }
+          // Show only posts from users who haven't hidden themselves from global
+          // This captures both 'false' and 'NULL' values
+          query = query.filter('profiles.hide_from_global', 'neq', true)
         }
 
         if (currentUserId && !isGlobal) {

@@ -41,8 +41,9 @@ export default function NotificationsPage() {
   const getPostSlug = (notif: any) => {
     if (!notif.post) return '#'
     const content = notif.post.content || 'post'
+    const authorUsername = notif.post.profiles?.username || profile?.username
     const cleanContent = content.split(/\s+/).slice(0, 5).join('-').toLowerCase().replace(/[^a-z0-9-]/g, '')
-    return `/u/${profile?.username}/${cleanContent}-${notif.post.id.substring(0, 6)}`
+    return `/u/${authorUsername}/${cleanContent}-${notif.post.id.substring(0, 6)}`
   }
 
   return (

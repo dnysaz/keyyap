@@ -69,8 +69,7 @@ export default function RepostModal({ isOpen, onClose, originalPost, onSuccess }
 
   useEffect(() => {
     async function fetchFollowing() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (!profile?.id) return
       const { data } = await supabase
         .from('follows')
         .select(`
@@ -81,14 +80,14 @@ export default function RepostModal({ isOpen, onClose, originalPost, onSuccess }
             avatar_url
           )
         `)
-        .eq('follower_id', user.id)
+        .eq('follower_id', profile.id)
       
       if (data) {
         setFollowedUsers(data.map((f: any) => f.following))
       }
     }
     if (isOpen) fetchFollowing()
-  }, [isOpen])
+  }, [isOpen, profile?.id])
 
   const filteredMentions = followedUsers.filter(u => 
     u.username.toLowerCase().includes(mentionSearch.toLowerCase()) || 
@@ -96,12 +95,15 @@ export default function RepostModal({ isOpen, onClose, originalPost, onSuccess }
   )
 
   const insertMention = (selectedUser: any) => {
-    const parts = content.split(' ')
-    const lastPart = parts[parts.length - 1]
-    if (lastPart.startsWith('@')) {
-      parts[parts.length - 1] = `@${selectedUser.username} `
-      setContent(parts.join(' '))
+    const words = content.split(/(\s+)/)
+    // Find last @ word and replace it
+    for (let i = words.length - 1; i >= 0; i--) {
+      if (words[i].startsWith('@')) {
+        words[i] = `@${selectedUser.username} `
+        break
+      }
     }
+    setContent(words.join(''))
     setShowMentionSuggestions(false)
     textareaRef.current?.focus()
   }

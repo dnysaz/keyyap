@@ -20,6 +20,7 @@ export default function NotificationsPage() {
     loading, 
     fetchNotifications, 
     markAllAsRead,
+    deleteNotification,
     hasFetched 
   } = useNotificationStore()
 
@@ -94,7 +95,20 @@ export default function NotificationsPage() {
                               </Link>
                               <span className="text-gray-500 text-[13px] truncate">@{notif.from_profile?.username}</span>
                             </div>
-                            <span className="text-[11px] text-gray-400 shrink-0">{formatDate(notif.created_at)}</span>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="text-[11px] text-gray-400">{formatDate(notif.created_at)}</span>
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault()
+                                  e.stopPropagation()
+                                  deleteNotification(notif.id)
+                                }}
+                                className="p-1 hover:bg-gray-200 rounded-full text-gray-400 hover:text-gray-600 transition-colors"
+                                title="Delete notification"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
                           </div>
                           <p className="text-gray-900 text-[14px]">
                             {notif.type === 'like' && 'Liked your post'}

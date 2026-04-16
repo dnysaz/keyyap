@@ -34,6 +34,7 @@ interface NotificationState {
   resetUnreadCount: () => void
   addNotification: (notif: Notification) => void
   markAllAsRead: (userId: string) => Promise<void>
+  deleteNotification: (id: string) => Promise<void>
 }
 
 export const useNotificationStore = create<NotificationState>((set, get) => ({
@@ -43,6 +44,18 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   hasFetched: false,
   setUnreadCount: (count) => set({ unreadCount: count }),
   
+  deleteNotification: async (id) => {
+    const { error } = await supabase
+      .from('notifications')
+      .delete()
+      .eq('id', id)
+
+    if (!error) {
+      set((state) => ({
+        notifications: state.notifications.filter(n => n.id !== id)
+      }))
+    }
+  },
   fetchUnreadCount: async (userId) => {
     const { count, error } = await supabase
       .from('notifications')

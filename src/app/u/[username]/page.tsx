@@ -225,12 +225,8 @@ export default function ProfilePage() {
       setIsFollowing(true)
       setFollowersCount(prev => prev + 1)
       
-      // Notify
-      await supabase.from('notifications').insert({
-        type: 'follow',
-        user_id: profile.id,
-        from_user_id: user.id
-      })
+      setIsFollowing(true)
+      setFollowersCount(prev => prev + 1)
     }
   }
 
@@ -426,8 +422,8 @@ export default function ProfilePage() {
                       })}
                     </div>
                     {loading && (
-                      <div className="py-8 text-center text-gray-500 text-sm animate-pulse">
-                        Loading more content...
+                      <div className="py-8 flex justify-center">
+                        <div className="spinner border-primary/20 border-t-primary w-5 h-5" />
                       </div>
                     )}
                   </>

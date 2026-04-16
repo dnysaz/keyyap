@@ -214,13 +214,6 @@ function SearchContent() {
       } else {
         await supabase.from('follows').insert({ follower_id: user.id, following_id: profileId })
         setFollowedIds(prev => new Set(prev).add(profileId))
-        
-        // Notify
-        await supabase.from('notifications').insert({
-          type: 'follow',
-          user_id: profileId,
-          from_user_id: user.id
-        })
       }
     } catch (err) {
       console.error('Error toggling follow:', err)

@@ -260,7 +260,10 @@ export default function PostDetailPage() {
       }
     }
 
-    if (username && slug) fetchPost()
+    if (username && slug) {
+      setLoading(true)
+      fetchPost()
+    }
     return () => { isMounted = false }
   }, [username, slug])
 
@@ -416,59 +419,24 @@ export default function PostDetailPage() {
     setNewComment('')
     setReplyingTo(null)
 
-    const { data: insertedComment, error } = await supabase.from('comments').insert({
-      user_id: user.id,
-      post_id: post.id,
-      parent_comment_id: replyingTo?.id || null,
-      content: commentText
-    }).select().single()
+    try {
+      const { data: insertedComment, error } = await supabase.from('comments').insert({
+        user_id: user.id,
+        post_id: post.id,
+        parent_comment_id: replyingTo?.id || null,
+        content: commentText
+      }).select().single()
 
-    if (error) {
-      console.error('Error inserting comment:', error)
-      return
+      if (error) throw error
+
+      // Update local count and re-fetch to show new comment
+      setPost((p: any) => ({ ...p, comments_count: (p?.comments_count || 0) + 1 }))
+      await fetchCommentsForPost(post.id)
+    } catch (err) {
+      console.error('Error inserting comment:', err)
+      // Restore text if failed so user doesn't lose it
+      setNewComment(commentText)
     }
-
-    // 1. Find all users who ever participated in this post (including the post owner)
-    const { data: participants } = await supabase
-      .from('comments')
-      .select('user_id')
-      .eq('post_id', post.id)
-
-    // Use a Set to ensure unique user IDs
-    const notifyUserIds = new Set<string>()
-
-    // Always notify the POST AUTHOR
-    if (post.user_id !== user.id) {
-      notifyUserIds.add(post.user_id)
-    }
-
-    // Always notify previous COMMENTERS
-    if (participants) {
-      participants.forEach(p => {
-        if (p.user_id !== user.id) {
-          notifyUserIds.add(p.user_id)
-        }
-      })
-    }
-
-    // 2. Insert notifications for everyone in the Set
-    const notifsToInsert = Array.from(notifyUserIds).map(targetUserId => ({
-      type: 'comment',
-      user_id: targetUserId,
-      from_user_id: user.id,
-      post_id: post.id,
-      comment_id: insertedComment?.id || null
-    }))
-
-    if (notifsToInsert.length > 0) {
-      await supabase.from('notifications').insert(notifsToInsert)
-    }
-
-    // 3. Update local count (Optimistic UI)
-    setPost((p: any) => ({ ...p, comments_count: (p?.comments_count || 0) + 1 }))
-    
-    // 4. Re-fetch comments using the shared function
-    await fetchCommentsForPost(post.id)
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -488,9 +456,6 @@ export default function PostDetailPage() {
         setLikesCount(l => Math.max(0, l - 1))
       } else {
         await supabase.from('post_likes').insert({ user_id: user.id, post_id: post.id })
-        if (user.id !== post.user_id) {
-          await supabase.from('notifications').insert({ type: 'like', user_id: post.user_id, from_user_id: user.id, post_id: post.id })
-        }
         setIsLiked(true)
         setLikesCount(l => l + 1)
       }
@@ -504,9 +469,6 @@ export default function PostDetailPage() {
       setIsFollowing(false)
     } else {
       await supabase.from('follows').insert({ follower_id: user.id, following_id: profile.id })
-      if (user.id !== profile.id) {
-        await supabase.from('notifications').insert({ type: 'follow', user_id: profile.id, from_user_id: user.id })
-      }
       setIsFollowing(true)
     }
   }
@@ -521,9 +483,6 @@ export default function PostDetailPage() {
         setRepostCount(r => Math.max(0, r - 1))
       } else {
         await supabase.from('reposts').insert({ user_id: user.id, original_post_id: post.id })
-        if (user.id !== post.user_id) {
-          await supabase.from('notifications').insert({ type: 'repost', user_id: post.user_id, from_user_id: user.id, post_id: post.id })
-        }
         setIsReposted(true)
         setRepostCount(r => r + 1)
       }

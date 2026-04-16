@@ -134,14 +134,6 @@ export default function PostCard({ post, currentUserId, onLikeChange, reposterUs
     try {
       if (newLiked) {
         await supabase.from('post_likes').insert({ post_id: post.id, user_id: currentUserId })
-        if (currentUserId !== post.user_id) {
-          await supabase.from('notifications').insert({
-            type: 'like',
-            user_id: post.user_id,
-            from_user_id: currentUserId,
-            post_id: post.id
-          })
-        }
       } else {
         await supabase.from('post_likes').delete().eq('post_id', post.id).eq('user_id', currentUserId)
       }

@@ -97,15 +97,7 @@ export default function RepostPage() {
 
       if (postError) throw postError
 
-      // Notification
-      if (profile.id !== originalPost.user_id) {
-        await supabase.from('notifications').insert({
-          type: 'repost',
-          user_id: originalPost.user_id,
-          from_user_id: profile.id,
-          post_id: originalPost.id
-        })
-      }
+
 
       router.push('/')
     } catch (err: any) {

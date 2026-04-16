@@ -30,9 +30,9 @@ export default function EditPage() {
   // Fetch target post data
   useEffect(() => {
     async function fetchPost() {
-      if (!params.slug) return
-      
-      const postId = (params.slug as string).split('-').pop()
+      const slugStr = params.slug as string
+      // If it's a UUID, use it directly, otherwise try to extract it from a slug
+      const postId = slugStr.includes('-') && slugStr.length >= 36 ? slugStr : slugStr.split('-').pop()
       if (!postId) return
 
       const { data, error } = await supabase

@@ -183,7 +183,7 @@ export default function PostCard({ post, currentUserId, onLikeChange, reposterUs
   }
 
   const handleEdit = () => {
-    router.push(`/u/${post.profiles?.username}/${getSlug(post.id, post.content)}/edit`)
+    router.push(`/u/${post.profiles?.username}/${post.id}/edit`)
     setShowMenu(false)
   }
 

@@ -33,6 +33,10 @@ export default function RepostModal({ isOpen, onClose, originalPost, onSuccess }
   const [linkMeta, setLinkMeta] = useState<LinkMetadata | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const router = useRouter()
+  const [followedUsers, setFollowedUsers] = useState<any[]>([])
+  const [mentionSearch, setMentionSearch] = useState('')
+  const [showMentionSuggestions, setShowMentionSuggestions] = useState(false)
+  const [highlightedIndex, setHighlightedIndex] = useState(0)
 
   const charCount = content.length
   const isOverLimit = charCount > MAX_CHARS
@@ -62,6 +66,78 @@ export default function RepostModal({ isOpen, onClose, originalPost, onSuccess }
     }
     return () => { document.body.style.overflow = 'unset' }
   }, [isOpen])
+
+  useEffect(() => {
+    async function fetchFollowing() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data } = await supabase
+        .from('follows')
+        .select(`
+          following:following_id (
+            id,
+            username,
+            full_name,
+            avatar_url
+          )
+        `)
+        .eq('follower_id', user.id)
+      
+      if (data) {
+        setFollowedUsers(data.map((f: any) => f.following))
+      }
+    }
+    if (isOpen) fetchFollowing()
+  }, [isOpen])
+
+  const filteredMentions = followedUsers.filter(u => 
+    u.username.toLowerCase().includes(mentionSearch.toLowerCase()) || 
+    (u.full_name && u.full_name.toLowerCase().includes(mentionSearch.toLowerCase()))
+  )
+
+  const insertMention = (selectedUser: any) => {
+    const parts = content.split(' ')
+    const lastPart = parts[parts.length - 1]
+    if (lastPart.startsWith('@')) {
+      parts[parts.length - 1] = `@${selectedUser.username} `
+      setContent(parts.join(' '))
+    }
+    setShowMentionSuggestions(false)
+    textareaRef.current?.focus()
+  }
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value
+    setContent(val)
+    
+    const words = val.split(/[\s\n]/)
+    const lastWord = words[words.length - 1]
+    
+    if (lastWord.startsWith('@') && lastWord.length >= 3) {
+      setMentionSearch(lastWord.substring(1))
+      setShowMentionSuggestions(true)
+      setHighlightedIndex(0)
+    } else {
+      setShowMentionSuggestions(false)
+    }
+  }
+
+  const handleRepostKeyDown = (e: React.KeyboardEvent) => {
+    if (showMentionSuggestions && filteredMentions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setHighlightedIndex(prev => (prev + 1) % filteredMentions.length)
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setHighlightedIndex(prev => (prev - 1 + filteredMentions.length) % filteredMentions.length)
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault()
+        insertMention(filteredMentions[highlightedIndex])
+      } else if (e.key === 'Escape') {
+        setShowMentionSuggestions(false)
+      }
+    }
+  }
 
   if (!isOpen) return null
 
@@ -173,14 +249,40 @@ export default function RepostModal({ isOpen, onClose, originalPost, onSuccess }
                 </button>
               </div>
 
-              <textarea
-                ref={textareaRef}
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                placeholder="Add a comment..."
-                className="w-full min-h-[140px] pt-1 text-xl text-gray-900 placeholder:text-gray-400 bg-transparent border-none focus:ring-0 resize-none leading-relaxed"
-                maxLength={MAX_CHARS + 50}
-              />
+              <div className="relative">
+                {showMentionSuggestions && filteredMentions.length > 0 && (
+                  <div className="absolute bottom-full left-0 right-0 w-full mb-2 pointer-events-auto z-50">
+                    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-1 duration-200">
+                      <div className="max-h-[220px] overflow-y-auto py-1">
+                        {filteredMentions.map((suggestion, idx) => (
+                          <button
+                            key={suggestion.id}
+                            type="button"
+                            onClick={() => insertMention(suggestion)}
+                            onMouseEnter={() => setHighlightedIndex(idx)}
+                            className={`w-full flex items-center gap-3 p-2.5 px-4 transition-colors ${idx === highlightedIndex ? 'bg-gray-50' : 'hover:bg-gray-50/50'}`}
+                          >
+                            <Avatar url={suggestion.avatar_url} username={suggestion.username} size="xs" />
+                            <div className="text-left flex-1 min-w-0">
+                              <div className="font-bold text-[13px] text-gray-900 truncate tracking-tight">{suggestion.full_name || suggestion.username}</div>
+                              <div className="text-[11px] text-gray-400 truncate mt-0.5">@{suggestion.username}</div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <textarea
+                  ref={textareaRef}
+                  value={content}
+                  onChange={handleInputChange}
+                  onKeyDown={handleRepostKeyDown}
+                  placeholder="Add a comment..."
+                  className="w-full min-h-[140px] pt-1 text-xl text-gray-900 placeholder:text-gray-400 bg-transparent border-none focus:ring-0 resize-none leading-relaxed"
+                  maxLength={MAX_CHARS + 50}
+                />
+              </div>
 
               <div className={`text-right text-xs mt-2 font-medium ${isOverLimit ? 'text-red-500' : 'text-gray-400'}`}>
                 {charCount}/{MAX_CHARS}

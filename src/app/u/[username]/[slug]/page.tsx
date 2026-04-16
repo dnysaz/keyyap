@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Heart, MessageCircle, Repeat, Send, UserPlus, UserCheck, ExternalLink, Link as LinkIcon, Search, Home, LogOut, TrendingUp, Bell, Play, SendHorizontal } from 'lucide-react'
+import { ArrowLeft, Heart, MessageCircle, Repeat, Send, UserPlus, UserCheck, ExternalLink, Link as LinkIcon, Search, Home, LogOut, TrendingUp, Bell, Play, SendHorizontal, Pencil, Trash2 } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/authStore'
@@ -21,6 +21,9 @@ interface Comment {
   parent_comment_id: string | null
   content: string
   created_at: string
+  updated_at: string
+  is_deleted: boolean
+  deleted_at: string | null
   profiles: {
     username: string
     full_name: string
@@ -171,6 +174,8 @@ export default function PostDetailPage() {
   const [loading, setLoading] = useState(true)
   const [comments, setComments] = useState<Comment[]>([])
   const [newComment, setNewComment] = useState('')
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
+  const [editCommentContent, setEditCommentContent] = useState('')
   const [replyingTo, setReplyingTo] = useState<Comment | null>(null)
   const [linkMetas, setLinkMetas] = useState<LinkMetadata[]>([])
   const [quotedLinkMetas, setQuotedLinkMetas] = useState<LinkMetadata[]>([])
@@ -329,7 +334,6 @@ export default function PostDetailPage() {
       .from('comments')
       .select('*, profiles(username, full_name, avatar_url)')
       .eq('post_id', postId)
-      .eq('is_deleted', false)
       .order('created_at', { ascending: true })
 
     const formattedComments = (commentsData || []).map((c: any) => ({
@@ -337,18 +341,20 @@ export default function PostDetailPage() {
       profiles: Array.isArray(c.profiles) ? c.profiles[0] : c.profiles
     }))
 
+    const activeComments = formattedComments.filter(c => !c.is_deleted)
+
     setComments(buildCommentTree(formattedComments))
-    setCommentCount(formattedComments.length);
+    setCommentCount(activeComments.length);
 
     // Sync comment count in database if it's out of sync
-    if (post && formattedComments.length !== (post.comments_count ?? 0)) {
+    if (post && activeComments.length !== (post.comments_count ?? 0)) {
       supabase
         .from('posts')
-        .update({ comments_count: formattedComments.length })
+        .update({ comments_count: activeComments.length })
         .eq('id', postId)
         .then(() => {
           // Also update local post object
-          setPost((p: any) => p ? { ...p, comments_count: formattedComments.length } : p)
+          setPost((p: any) => p ? { ...p, comments_count: activeComments.length } : p)
         })
     }
 
@@ -508,6 +514,46 @@ export default function PostDetailPage() {
     }
   }
 
+  async function handleEditCommentSubmit(commentId: string) {
+    const text = editCommentContent.trim()
+    if (!text || !user || !post?.id) {
+      setEditingCommentId(null)
+      return
+    }
+
+    try {
+      const { error } = await supabase
+        .from('comments')
+        .update({ content: text, updated_at: new Date().toISOString() })
+        .eq('id', commentId)
+        .eq('user_id', user.id)
+
+      if (error) throw error
+      setEditingCommentId(null)
+      await fetchCommentsForPost(post.id)
+    } catch (err) {
+      console.error('Error editing comment:', err)
+    }
+  }
+
+  async function handleDeleteCommentAction(commentId: string) {
+    if (!user || !post?.id) return
+
+    try {
+      const { error } = await supabase
+        .from('comments')
+        .update({ is_deleted: true, deleted_at: new Date().toISOString() })
+        .eq('id', commentId)
+        .eq('user_id', user.id)
+
+      if (error) throw error
+      await fetchCommentsForPost(post.id)
+      setPost((p: any) => ({ ...p, comments_count: Math.max(0, (p?.comments_count || 0) - 1) }))
+    } catch (err) {
+      console.error('Error deleting comment:', err)
+    }
+  }
+
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
@@ -655,83 +701,169 @@ export default function PostDetailPage() {
   }
 
   function renderComment(comment: Comment, depth: number = 0) {
+    const isOwner = user?.id === comment.user_id
+    const isEditing = editingCommentId === comment.id
+
+    // Check if edited (tolerate 1 second difference for db processing speed)
+    const isEdited = !comment.is_deleted && comment.updated_at && comment.created_at && 
+                     Math.abs(new Date(comment.updated_at).getTime() - new Date(comment.created_at).getTime()) > 1000
+
+    if (comment.is_deleted) {
+      return (
+        <div key={comment.id} className={depth > 0 ? 'ml-6 lg:ml-10 mt-1 border-l-2 border-primary/30 pl-4 py-2' : 'py-4 border-b border-gray-50 last:border-0'}>
+          <div className="flex gap-2 lg:gap-3 items-center">
+            <div className="w-8 h-8 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center shrink-0">
+               <Trash2 className="w-3.5 h-3.5 text-gray-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+               <span className="text-[13px] italic text-gray-500 bg-gray-50 px-3 py-1.5 rounded border border-gray-100 inline-block">
+                 This comment has been deleted at {formatDate(comment.deleted_at || comment.updated_at)}
+               </span>
+            </div>
+          </div>
+          {comment.replies && comment.replies.length > 0 && depth < 2 && (
+            <div className="mt-1">
+              {comment.replies.map(reply => renderComment(reply, depth + 1))}
+            </div>
+          )}
+        </div>
+      )
+    }
+
     return (
-      <div key={comment.id} className={depth > 0 ? 'ml-6 lg:ml-10 mt-1 border-l-2 border-primary/30 pl-4 py-2' : 'py-4 border-b border-gray-50 last:border-0'}>
+      <div key={comment.id} className={depth > 0 ? 'ml-6 lg:ml-10 mt-1 border-l-2 border-primary/30 pl-4 py-2' : 'py-4 border-b border-gray-50 last:border-0 group/comment'}>
         <div className="flex gap-2 lg:gap-3">
           <Link href={`/u/${comment.profiles?.username}`}>
             <Avatar url={comment.profiles?.avatar_url || undefined} username={comment.profiles?.username} size="sm" />
           </Link>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <Link href={`/u/${comment.profiles?.username}`} className="font-bold text-gray-900 hover:underline text-[13px] lg:text-[14px]">
-                {comment.profiles?.full_name || comment.profiles?.username}
-              </Link>
-              <span className="text-gray-400 text-[10px] lg:text-xs">{formatDate(comment.created_at)}</span>
-            </div>
-            <div className="text-[13px] lg:text-[14px] mt-1 text-gray-800 leading-normal break-words pr-2">
-              <span dangerouslySetInnerHTML={{ __html: formatCommentLinkText(comment.content) }} />
-
-              {/* Link & Video Previews in Comments */}
-              <div className="mt-3 space-y-3">
-                {(comment.content.match(/(https?:\/\/[^\s]+)/g) || []).map((url: string, idx: number) => {
-                  const yid = extractYoutubeId(url)
-                  if (!yid) return null
-                  return (
-                    <div key={`yt-${idx}`} className="rounded-2xl overflow-hidden border border-gray-100 aspect-video relative group/video shadow-sm bg-black">
-                      <iframe
-                        src={`https://www.youtube.com/embed/${yid}`}
-                        className="w-full h-full"
-                        allowFullScreen
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      />
-                    </div>
-                  )
-                })}
-
-                {(comment.content.match(/(https?:\/\/[^\s]+)/g) || []).map((url: string, idx: number) => {
-                  const spotify = extractSpotifyId(url)
-                  if (!spotify) return null
-                  return (
-                    <div key={`spotify-${idx}`} className="rounded-xl overflow-hidden border border-gray-100 bg-white mt-2">
-                      <iframe
-                        src={`https://open.spotify.com/embed/${spotify.type}/${spotify.id}?utm_source=generator&theme=0`}
-                        width="100%"
-                        height={spotify.type === 'track' ? "80" : "152"}
-                        frameBorder="0"
-                        allowFullScreen
-                        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                        loading="lazy"
-                        className="block"
-                      />
-                    </div>
-                  )
-                })}
-
-                {commentLinkMetas[comment.id]?.filter(meta => !extractYoutubeId(meta.url) && !extractSpotifyId(meta.url)).map((meta, idx) => (
-                  <a
-                    key={idx}
-                    href={meta.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex rounded-xl border border-gray-100 overflow-hidden hover:bg-gray-50/50 transition-all group/link bg-white shadow-sm max-w-full"
-                  >
-                    {meta.image && (
-                      <div className="w-16 h-16 lg:w-24 lg:h-24 shrink-0 overflow-hidden border-r border-gray-50">
-                        <img src={meta.image} className="w-full h-full object-cover group-hover/link:scale-105 transition-transform duration-500" alt="" />
-                      </div>
-                    )}
-                    <div className="p-2 lg:p-2.5 flex-1 min-w-0 flex flex-col justify-center">
-                      <div className="flex items-center gap-1.5 text-[10px] text-gray-400 mb-0.5 font-bold uppercase tracking-wider">
-                        <LinkIcon className="w-3 h-3" /> {(meta as any).domain || extractDomain(meta.url)}
-                      </div>
-                      <h4 className="font-bold text-gray-900 text-[12px] lg:text-[13px] line-clamp-1 group-hover/link:text-primary transition-colors">{meta.title || meta.url}</h4>
-                      {meta.description && <p className="text-[11px] lg:text-[12px] text-gray-500 line-clamp-2 mt-0.5 leading-tight">{meta.description}</p>}
-                    </div>
-                  </a>
-                ))}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Link href={`/u/${comment.profiles?.username}`} className="font-bold text-gray-900 hover:underline text-[13px] lg:text-[14px]">
+                  {comment.profiles?.full_name || comment.profiles?.username}
+                </Link>
+                <span className="text-gray-400 text-[10px] lg:text-xs">{formatDate(comment.created_at)}</span>
               </div>
+              
+              {/* Action Menu overlay - only show if owner and not editing */}
+              {isOwner && !isEditing && (
+                <div className="opacity-0 group-hover/comment:opacity-100 transition-opacity flex items-center gap-1">
+                   <button 
+                     onClick={() => {
+                        setEditingCommentId(comment.id)
+                        setEditCommentContent(comment.content)
+                     }}
+                     className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-full transition-colors"
+                     title="Edit comment"
+                   >
+                     <Pencil className="w-3.5 h-3.5" />
+                   </button>
+                   <button 
+                     onClick={() => handleDeleteCommentAction(comment.id)}
+                     className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                     title="Delete comment"
+                   >
+                     <Trash2 className="w-3.5 h-3.5" />
+                   </button>
+                </div>
+              )}
             </div>
-            {depth < 2 && user && (
+
+            {isEditing ? (
+              <div className="mt-2">
+                <textarea
+                  autoFocus
+                  value={editCommentContent}
+                  onChange={(e) => setEditCommentContent(e.target.value)}
+                  className="w-full bg-gray-50 rounded-xl px-3 py-2 text-[13px] border border-gray-200 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary min-h-[60px] resize-none"
+                />
+                <div className="flex justify-end gap-2 mt-2">
+                  <button 
+                    onClick={() => setEditingCommentId(null)}
+                    className="text-gray-500 text-[11px] font-bold px-3 py-1.5 hover:bg-gray-100 rounded-full transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={() => handleEditCommentSubmit(comment.id)}
+                    disabled={!editCommentContent.trim() || editCommentContent.trim() === comment.content}
+                    className="bg-primary text-white text-[11px] font-bold px-4 py-1.5 rounded-full hover:bg-primary-hover disabled:opacity-50 transition-colors"
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="text-[13px] lg:text-[14px] mt-1 text-gray-800 leading-normal break-words pr-2">
+                <span dangerouslySetInnerHTML={{ __html: formatCommentLinkText(comment.content) }} />
+                
+                {isEdited && (
+                  <span className="text-[10px] text-gray-400 italic ml-2 bg-gray-50 px-1.5 py-0.5 rounded">Edited</span>
+                )}
+
+                {/* Link & Video Previews in Comments */}
+                <div className="mt-3 space-y-3">
+                  {(comment.content.match(/(https?:\/\/[^\s]+)/g) || []).map((url: string, idx: number) => {
+                    const yid = extractYoutubeId(url)
+                    if (!yid) return null
+                    return (
+                      <div key={`yt-${idx}`} className="rounded-2xl overflow-hidden border border-gray-100 aspect-video relative group/video shadow-sm bg-black">
+                        <iframe
+                          src={`https://www.youtube.com/embed/${yid}`}
+                          className="w-full h-full"
+                          allowFullScreen
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        />
+                      </div>
+                    )
+                  })}
+
+                  {(comment.content.match(/(https?:\/\/[^\s]+)/g) || []).map((url: string, idx: number) => {
+                    const spotify = extractSpotifyId(url)
+                    if (!spotify) return null
+                    return (
+                      <div key={`spotify-${idx}`} className="rounded-xl overflow-hidden border border-gray-100 bg-white mt-2">
+                        <iframe
+                          src={`https://open.spotify.com/embed/${spotify.type}/${spotify.id}?utm_source=generator&theme=0`}
+                          width="100%"
+                          height={spotify.type === 'track' ? "80" : "152"}
+                          frameBorder="0"
+                          allowFullScreen
+                          allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                          loading="lazy"
+                          className="block"
+                        />
+                      </div>
+                    )
+                  })}
+
+                  {commentLinkMetas[comment.id]?.filter(meta => !extractYoutubeId(meta.url) && !extractSpotifyId(meta.url)).map((meta, idx) => (
+                    <a
+                      key={idx}
+                      href={meta.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex rounded-xl border border-gray-100 overflow-hidden hover:bg-gray-50/50 transition-all group/link bg-white shadow-sm max-w-full"
+                    >
+                      {meta.image && (
+                        <div className="w-16 h-16 lg:w-24 lg:h-24 shrink-0 overflow-hidden border-r border-gray-50">
+                          <img src={meta.image} className="w-full h-full object-cover group-hover/link:scale-105 transition-transform duration-500" alt="" />
+                        </div>
+                      )}
+                      <div className="p-2 lg:p-2.5 flex-1 min-w-0 flex flex-col justify-center">
+                        <div className="flex items-center gap-1.5 text-[10px] text-gray-400 mb-0.5 font-bold uppercase tracking-wider">
+                          <LinkIcon className="w-3 h-3" /> {(meta as any).domain || extractDomain(meta.url)}
+                        </div>
+                        <h4 className="font-bold text-gray-900 text-[12px] lg:text-[13px] line-clamp-1 group-hover/link:text-primary transition-colors">{meta.title || meta.url}</h4>
+                        {meta.description && <p className="text-[11px] lg:text-[12px] text-gray-500 line-clamp-2 mt-0.5 leading-tight">{meta.description}</p>}
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {depth < 2 && user && !isEditing && (
               <button
                 onClick={() => {
                   setReplyingTo(comment)

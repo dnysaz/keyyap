@@ -138,7 +138,8 @@ CREATE TABLE IF NOT EXISTS public.comments (
   content TEXT NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  is_deleted BOOLEAN DEFAULT false
+  is_deleted BOOLEAN DEFAULT false,
+  deleted_at TIMESTAMPTZ
 );
 
 ALTER TABLE public.comments ENABLE ROW LEVEL SECURITY;
@@ -148,7 +149,7 @@ DROP POLICY IF EXISTS "comments_insert_auth" ON public.comments;
 DROP POLICY IF EXISTS "comments_update_auth" ON public.comments;
 DROP POLICY IF EXISTS "comments_delete_auth" ON public.comments;
 
-CREATE POLICY "comments_select_public" ON public.comments FOR SELECT USING (is_deleted = false);
+CREATE POLICY "comments_select_public" ON public.comments FOR SELECT USING (true);
 CREATE POLICY "comments_insert_auth" ON public.comments FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "comments_update_auth" ON public.comments FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "comments_delete_auth" ON public.comments FOR DELETE USING (auth.uid() = user_id);
@@ -376,3 +377,14 @@ SET comments_count = (
   SELECT count(*) FROM public.comments c 
   WHERE c.post_id = p.id AND c.is_deleted = false
 );
+
+-- =========================================================================
+-- PATCH v3.3 — Edit/Delete Comment Feature
+-- =========================================================================
+
+-- Add deleted_at column to comments
+ALTER TABLE public.comments ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+
+-- Allow viewing deleted comments (they render as placeholders in UI)
+DROP POLICY IF EXISTS "comments_select_public" ON public.comments;
+CREATE POLICY "comments_select_public" ON public.comments FOR SELECT USING (true);

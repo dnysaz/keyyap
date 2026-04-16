@@ -213,7 +213,23 @@ export default function SettingsPage() {
               {saving ? 'Saving...' : 'Save Changes'}
             </button>
 
-            <div className="pt-6 border-t border-gray-100">
+            <div className="pt-6 border-t border-gray-100 space-y-3">
+              <Link
+                href="/settings/feed"
+                className="w-full flex items-center justify-between p-4 border border-gray-100 rounded-xl hover:bg-gray-50 transition-colors group"
+              >
+                <div className="flex items-center gap-3 text-gray-700">
+                  <div className="p-2 bg-orange-50 text-orange-600 rounded-lg">
+                    <Zap className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm">Feed Settings</p>
+                    <p className="text-xs text-gray-500">Manage your visibility and feed preferences</p>
+                  </div>
+                </div>
+                <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-gray-400 transition-colors" />
+              </Link>
+
               <Link
                 href="/settings/password"
                 className="w-full flex items-center justify-between p-4 border border-gray-100 rounded-xl hover:bg-gray-50 transition-colors group"

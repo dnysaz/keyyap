@@ -117,6 +117,7 @@ function SearchContent() {
           .from('profiles')
           .select('*')
           .or(`username.ilike.%${effectiveQuery}%,full_name.ilike.%${effectiveQuery}%`)
+          .eq('hide_from_search', false)
           .range(offset, offset + limit - 1)
         
         const newProfiles = data || []
@@ -144,6 +145,7 @@ function SearchContent() {
           .from('posts')
           .select('*, profiles(*)')
           .eq('is_deleted', false)
+          .filter('profiles.hide_from_search', 'eq', false)
 
         if (tagParam) {
           const tag = tagParam.toLowerCase()

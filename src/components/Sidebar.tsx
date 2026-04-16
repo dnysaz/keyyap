@@ -41,14 +41,13 @@ export default function Sidebar() {
         {navItems.map((item) => {
           const Icon = item.icon
           const isActive = pathname === item.href
-          
+
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-full transition-all duration-200 group no-underline ${
-                isActive ? 'text-primary' : 'text-gray-900 hover:bg-gray-100'
-              }`}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-full transition-all duration-200 group no-underline ${isActive ? 'text-primary' : 'text-gray-900 hover:bg-gray-100'
+                }`}
             >
               <span className={`text-[15px] hidden xl:inline text-right ${isActive ? 'font-bold' : 'font-medium'}`}>{item.label}</span>
               <div className="relative">
@@ -89,7 +88,7 @@ export default function Sidebar() {
               </div>
               <Avatar url={profile.avatar_url || undefined} username={profile.username} size="sm" />
             </Link>
-            
+
             <button
               onClick={() => signOut()}
               className="flex items-center gap-2 p-2 rounded-full hover:bg-rose-50 text-gray-400 hover:text-rose-600 transition-colors"

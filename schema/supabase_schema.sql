@@ -19,6 +19,8 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   is_private BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
+  hide_from_global BOOLEAN DEFAULT false,
+  hide_from_search BOOLEAN DEFAULT false,
   CONSTRAINT username_length CHECK (char_length(username) >= 3)
 );
 

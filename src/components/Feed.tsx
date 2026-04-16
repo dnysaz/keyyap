@@ -19,7 +19,7 @@ export default function Feed({ isGlobal = false }: FeedProps) {
   const searchParams = useSearchParams()
   const activeTab = searchParams.get('tab') || 'foryou'
   const { user, loading: authLoading } = useAuthStore()
-  
+
   const { posts, setPosts } = usePostStore()
 
   const [loading, setLoading] = useState(false)
@@ -33,7 +33,7 @@ export default function Feed({ isGlobal = false }: FeedProps) {
 
   const fetchPosts = useCallback(async (pageNum: number = 0, append: boolean = false) => {
     if (!append && displayPosts.length === 0) setLoading(true)
-    
+
     const limit = 15
     const offset = pageNum * limit
     const activeTab = searchParams.get('tab') || 'foryou'
@@ -41,7 +41,7 @@ export default function Feed({ isGlobal = false }: FeedProps) {
     console.log(`🔍 Feed: Starting fetch for tab "${activeTab}", page ${pageNum}, append: ${append}, user: ${currentUserId}`)
 
     // Safety timeout for this specific fetch
-    const timeoutPromise = new Promise((_, reject) => 
+    const timeoutPromise = new Promise((_, reject) =>
       setTimeout(() => reject(new Error('Fetch timeout')), 10000)
     )
 
@@ -51,11 +51,16 @@ export default function Feed({ isGlobal = false }: FeedProps) {
           .from('posts')
           .select(`
             *,
-            profiles:user_id (id, username, full_name, avatar_url)
+            profiles:user_id (id, username, full_name, avatar_url, hide_from_global, hide_from_search)
           `)
           .eq('is_deleted', false)
           .order('created_at', { ascending: false })
           .range(offset, offset + limit - 1)
+
+        // Filter out users who want to stay hidden from Global
+        if (isGlobal) {
+          query = query.filter('profiles.hide_from_global', 'eq', false)
+        }
 
         if (currentUserId && !isGlobal) {
           console.log('📡 Feed: Fetching following list...')
@@ -63,13 +68,13 @@ export default function Feed({ isGlobal = false }: FeedProps) {
             .from('follows')
             .select('following_id')
             .eq('follower_id', currentUserId)
-          
+
           if (fError) console.error('❌ Follows fetch error:', fError)
-          
+
           const followingIds = following?.map(f => f.following_id) || []
           const allowedIds = [...followingIds, currentUserId]
           console.log(`👥 Feed: allowedIds [${allowedIds.length}] :`, allowedIds)
-          
+
           if (allowedIds.length > 0) {
             query = query.in('user_id', allowedIds)
           }
@@ -77,12 +82,12 @@ export default function Feed({ isGlobal = false }: FeedProps) {
 
         console.log('📡 Feed: Executing posts query...')
         const { data: postsResult, error: postsError } = await query
-        
+
         if (postsError) {
-           console.error('❌ Posts query error:', postsError)
-           throw postsError
+          console.error('❌ Posts query error:', postsError)
+          throw postsError
         }
-        
+
         console.log(`✅ Feed: Received ${postsResult?.length || 0} posts from DB`)
 
         // Fetch quotes
@@ -109,7 +114,7 @@ export default function Feed({ isGlobal = false }: FeedProps) {
           quoted_post: post.quoted_post_id ? quotedPostsMap[post.quoted_post_id] || null : null,
           is_liked: userLikes.includes(post.id),
         })) as unknown as Post[]
-        
+
         return finalPosts
       })()
 
@@ -196,7 +201,7 @@ export default function Feed({ isGlobal = false }: FeedProps) {
         <FeedSkeleton count={user ? 5 : 3} />
       ) : displayPosts.length === 0 ? (
         <div className="py-20 text-center">
-            <p className="text-gray-400 font-bold">No yaps found here...</p>
+          <p className="text-gray-400 font-bold">No yaps found here...</p>
         </div>
       ) : (
         <div className="divide-y divide-gray-50">
@@ -219,14 +224,14 @@ export default function Feed({ isGlobal = false }: FeedProps) {
       {!user && !authLoading && displayPosts.length > 0 && (
         <div className="py-16 px-4 bg-gray-50/50 border-t border-gray-100 flex flex-col items-center justify-center text-center">
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 w-full max-w-sm">
-             <h3 className="text-xl font-bold text-gray-900 mb-2">Read more on KeyYap</h3>
-             <p className="text-[14px] text-gray-500 mb-6">Log in to discover more posts, leave comments, and join the conversation.</p>
-             <Link href="/login" className="block w-full py-3 bg-primary text-white rounded-full font-bold hover:bg-primary-hover transition-colors shadow-sm mb-3">
-               Log In
-             </Link>
-             <Link href="/signup" className="block w-full py-3 bg-white text-primary border border-primary rounded-full font-bold hover:bg-gray-50 transition-colors">
-               Sign Up
-             </Link>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Read more on KeyYap</h3>
+            <p className="text-[14px] text-gray-500 mb-6">Log in to discover more posts, leave comments, and join the conversation.</p>
+            <Link href="/login" className="block w-full py-3 bg-primary text-white rounded-full font-bold hover:bg-primary-hover transition-colors shadow-sm mb-3">
+              Log In
+            </Link>
+            <Link href="/signup" className="block w-full py-3 bg-white text-primary border border-primary rounded-full font-bold hover:bg-gray-50 transition-colors">
+              Sign Up
+            </Link>
           </div>
         </div>
       )}

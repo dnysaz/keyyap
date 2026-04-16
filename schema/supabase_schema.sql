@@ -358,3 +358,21 @@ DROP POLICY IF EXISTS "avatars_insert_auth" ON storage.objects;
 
 CREATE POLICY "avatars_select_public" ON storage.objects FOR SELECT USING (bucket_id = 'avatars');
 CREATE POLICY "avatars_insert_auth" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'avatars' AND auth.role() = 'authenticated');
+
+-- =========================================================================
+-- PATCH v3.2 — Copy everything below this line into Supabase SQL Editor
+-- =========================================================================
+
+-- FIX 1: Allow database triggers to insert notifications
+-- The old policy (auth.uid() = from_user_id) blocked triggers from creating
+-- notifications because triggers run in a server context where auth.uid()
+-- may not match. SELECT/UPDATE/DELETE remain locked to user_id.
+DROP POLICY IF EXISTS "notifications_insert_auth" ON public.notifications;
+CREATE POLICY "notifications_insert_auth" ON public.notifications FOR INSERT WITH CHECK (true);
+
+-- FIX 2: Sync all comment counts (one-time repair for stale counters)
+UPDATE public.posts p
+SET comments_count = (
+  SELECT count(*) FROM public.comments c 
+  WHERE c.post_id = p.id AND c.is_deleted = false
+);

@@ -213,23 +213,49 @@ export default function PostDetailPage() {
       const idPrefix = parts[parts.length - 1]
 
       try {
-        const { data: posts, error: postError } = await supabase
-          .from('posts')
-          .select('*, profiles!inner(*)')
-          .eq('is_deleted', false)
-          .ilike('profiles.username', username)
-          .order('created_at', { ascending: false })
-          .limit(50)
+        // Strategy 1: Try direct ID prefix match (fastest)
+        let matchedPost: any = null
+        
+        if (idPrefix && idPrefix.length >= 6) {
+          try {
+            const { data: directMatch } = await supabase
+              .from('posts')
+              .select('*, profiles(*)')
+              .eq('is_deleted', false)
+              .filter('id::text', 'ilike', `${idPrefix}%`)
+              .limit(5)
 
-        if (postError) throw postError
+            if (directMatch && directMatch.length > 0) {
+              matchedPost = directMatch.find((p: any) => 
+                p.profiles?.username?.toLowerCase() === username.toLowerCase()
+              ) || directMatch[0]
+            }
+          } catch {
+            // Strategy 1 failed (UUID filter not supported), fall through to Strategy 2
+          }
+        }
+
+        // Strategy 2: Fallback to username-based search
+        if (!matchedPost) {
+          const { data: posts, error: postError } = await supabase
+            .from('posts')
+            .select('*, profiles!inner(*)')
+            .eq('is_deleted', false)
+            .ilike('profiles.username', username)
+            .order('created_at', { ascending: false })
+            .limit(50)
+
+          if (postError) throw postError
+
+          matchedPost = posts?.find((p: any) => {
+            const expectedSlug = getSlug(p.id, p.content)
+            if (expectedSlug === slug) return true
+            if (idPrefix && p.id.startsWith(idPrefix)) return true
+            return false
+          })
+        }
+
         if (!isMounted) return
-
-        const matchedPost = posts?.find((p: any) => {
-          const expectedSlug = getSlug(p.id, p.content)
-          if (expectedSlug === slug) return true
-          if (idPrefix && p.id.startsWith(idPrefix)) return true
-          return false
-        })
 
         if (!matchedPost) {
           if (isMounted) setLoading(false)
@@ -280,7 +306,16 @@ export default function PostDetailPage() {
       setLoading(true)
       fetchPost()
     }
-    return () => { isMounted = false }
+
+    // Safety timeout: never stay loading forever
+    const safetyTimer = setTimeout(() => {
+      if (isMounted) setLoading(false)
+    }, 8000)
+
+    return () => { 
+      isMounted = false 
+      clearTimeout(safetyTimer)
+    }
   }, [username, slug])
 
   // Fetch comments when post loads
@@ -304,6 +339,18 @@ export default function PostDetailPage() {
 
     setComments(buildCommentTree(formattedComments))
     setCommentCount(formattedComments.length);
+
+    // Sync comment count in database if it's out of sync
+    if (post && formattedComments.length !== (post.comments_count ?? 0)) {
+      supabase
+        .from('posts')
+        .update({ comments_count: formattedComments.length })
+        .eq('id', postId)
+        .then(() => {
+          // Also update local post object
+          setPost((p: any) => p ? { ...p, comments_count: formattedComments.length } : p)
+        })
+    }
 
     // OPTIMIZED: Fetch link previews asynchronously WITHOUT blocking the state update
     (async () => {

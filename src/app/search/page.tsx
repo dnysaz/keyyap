@@ -112,26 +112,34 @@ function SearchContent() {
     const offset = pageNum * limit
 
     try {
+      // Pre-fetch following IDs to allow seeing hidden people we follow
+      let allFollowingIds: string[] = []
+      if (user) {
+        const { data: fData } = await supabase.from('follows').select('following_id').eq('follower_id', user.id)
+        allFollowingIds = [user.id, ...(fData?.map(f => f.following_id) || [])]
+      }
+
       if (activeTab === 'people') {
-        const { data } = await supabase
+        let profileQuery = supabase
           .from('profiles')
           .select('*')
           .or(`username.ilike.%${effectiveQuery}%,full_name.ilike.%${effectiveQuery}%`)
-          .eq('hide_from_search', false)
-          .range(offset, offset + limit - 1)
-        
+
+        if (allFollowingIds.length > 0) {
+          const ids = allFollowingIds.map(id => `"${id}"`).join(',')
+          profileQuery = profileQuery.or(`hide_from_search.eq.false,id.in.(${ids})`)
+        } else {
+          profileQuery = profileQuery.eq('hide_from_search', false)
+        }
+
+        const { data } = await profileQuery.range(offset, offset + limit - 1)
         const newProfiles = data || []
         
-        // Check following status
+        // Check following status for the current batch
         if (user && newProfiles.length > 0) {
-          const profileIds = newProfiles.map(p => p.id)
-          const { data: followData } = await supabase
-            .from('follows')
-            .select('following_id')
-            .eq('follower_id', user.id)
-            .in('following_id', profileIds)
-          
-          const newFollowedSet = new Set(followData?.map(f => f.following_id) || [])
+          const batchIds = newProfiles.map(p => p.id)
+          const followedInBatch = allFollowingIds.filter(id => batchIds.includes(id))
+          const newFollowedSet = new Set(followedInBatch)
           if (append) setFollowedIds(prev => new Set([...Array.from(prev), ...Array.from(newFollowedSet)]))
           else setFollowedIds(newFollowedSet)
         }
@@ -145,7 +153,14 @@ function SearchContent() {
           .from('posts')
           .select('*, profiles(*)')
           .eq('is_deleted', false)
-          .filter('profiles.hide_from_search', 'eq', false)
+
+        if (allFollowingIds.length > 0) {
+          const ids = allFollowingIds.map(id => `"${id}"`).join(',')
+          // Filter by profile's privacy OR if we follow the author
+          supabaseQuery = supabaseQuery.or(`hide_from_search.eq.false,user_id.in.(${ids})`, { foreignTable: 'profiles' })
+        } else {
+          supabaseQuery = supabaseQuery.filter('profiles.hide_from_search', 'eq', false)
+        }
 
         if (tagParam) {
           const tag = tagParam.toLowerCase()

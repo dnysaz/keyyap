@@ -57,24 +57,31 @@ export default function Feed({ isGlobal = false }: FeedProps) {
           .order('created_at', { ascending: false })
           .range(offset, offset + limit - 1)
 
-        // Filter out users who want to stay hidden from Global
+        console.log('📡 Feed: Fetching following list...')
+        const { data: following, error: fError } = await supabase
+          .from('follows')
+          .select('following_id')
+          .eq('follower_id', currentUserId || '')
+
+        if (fError) console.error('❌ Follows fetch error:', fError)
+
+        const followingIds = following?.map(f => f.following_id) || []
+        const allowedIds = [...followingIds, currentUserId].filter(Boolean) as string[]
+        console.log(`👥 Feed: allowedIds [${allowedIds.length}] :`, allowedIds)
+
+        // Filter logic: Show if NOT hidden OR if the current user is a follower
         if (isGlobal) {
-          query = query.filter('profiles.hide_from_global', 'eq', false)
+          if (currentUserId && allowedIds.length > 0) {
+            // Show posts that are NOT hidden OR are from people the user follows
+            const followedIdsList = allowedIds.map(id => `"${id}"`).join(',')
+            query = query.or(`hide_from_global.eq.false,user_id.in.(${followedIdsList})`, { foreignTable: 'profiles' })
+          } else {
+            // Guest or not following anyone: only show non-hidden posts
+            query = query.filter('profiles.hide_from_global', 'eq', false)
+          }
         }
 
         if (currentUserId && !isGlobal) {
-          console.log('📡 Feed: Fetching following list...')
-          const { data: following, error: fError } = await supabase
-            .from('follows')
-            .select('following_id')
-            .eq('follower_id', currentUserId)
-
-          if (fError) console.error('❌ Follows fetch error:', fError)
-
-          const followingIds = following?.map(f => f.following_id) || []
-          const allowedIds = [...followingIds, currentUserId]
-          console.log(`👥 Feed: allowedIds [${allowedIds.length}] :`, allowedIds)
-
           if (allowedIds.length > 0) {
             query = query.in('user_id', allowedIds)
           }

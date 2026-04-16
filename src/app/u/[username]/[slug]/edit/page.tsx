@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { X, Bold, Italic, Underline, Search, Repeat } from 'lucide-react'
+import { X, Bold, Italic, Underline, Search, TrendingUp } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/authStore'
 import Sidebar from '@/components/Sidebar'
+import RightSidebar from '@/components/RightSidebar'
 import Navigation from '@/components/Navigation'
 import AuthGuard from '@/components/AuthGuard'
 import Avatar from '@/components/Avatar'
@@ -15,10 +16,11 @@ const MAX_CHARS = 512
 export default function EditPage() {
   const params = useParams()
   const router = useRouter()
-  const { user, profile } = useAuthStore()
+  const { user } = useAuthStore()
   
   const [content, setContent] = useState('')
   const [hashtags, setHashtags] = useState('')
+  const [trendingTags, setTrendingTags] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -31,7 +33,8 @@ export default function EditPage() {
   useEffect(() => {
     async function fetchPost() {
       const slugStr = params.slug as string
-      // If it's a UUID, use it directly, otherwise try to extract it from a slug
+      if (!slugStr) return
+      
       const postId = slugStr.includes('-') && slugStr.length >= 36 ? slugStr : slugStr.split('-').pop()
       if (!postId) return
 
@@ -53,7 +56,27 @@ export default function EditPage() {
     }
 
     fetchPost()
+    fetchTrendingTags()
   }, [params.slug])
+
+  async function fetchTrendingTags() {
+    const { data } = await supabase.from('posts').select('hashtags').not('hashtags', 'is', null).limit(100)
+    if (data) {
+      const counts: { [key: string]: number } = {}
+      data.forEach((p: any) => {
+        if (Array.isArray(p.hashtags)) {
+          p.hashtags.forEach((tag: string) => {
+            counts[tag] = (counts[tag] || 0) + 1
+          })
+        }
+      })
+      const sorted = Object.entries(counts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([tag]) => tag)
+      setTrendingTags(sorted)
+    }
+  }
 
   const extractSpotifyId = (url: string) => {
     const match = url.match(/https?:\/\/open\.spotify\.com\/(track|album|playlist)\/([a-zA-Z0-9]+)/)
@@ -104,7 +127,9 @@ export default function EditPage() {
     setError('')
 
     try {
-      const postId = (params.slug as string).split('-').pop()
+      const slugStr = params.slug as string
+      const postId = slugStr.includes('-') && slugStr.length >= 36 ? slugStr : slugStr.split('-').pop()
+
       const tags = hashtags
         .split(',')
         .map((t: string) => t.trim().toLowerCase().replace(/^#/, ''))
@@ -144,10 +169,17 @@ export default function EditPage() {
     setContent(before + newText + after)
   }
 
-  if (loading) return <div className="min-h-screen bg-white flex items-center justify-center">Loading...</div>
+  const handleAppendTag = (tag: string) => {
+    const currentTags = hashtags.split(',').map(t => t.trim()).filter(t => t.length > 0)
+    if (!currentTags.includes(tag)) {
+      setHashtags(currentTags.length > 0 ? `${currentTags.join(', ')}, ${tag}` : tag)
+    }
+  }
 
   const charCount = content.length
   const isOverLimit = charCount > MAX_CHARS
+
+  if (loading) return <div className="min-h-screen bg-white flex items-center justify-center font-bold text-gray-300 animate-pulse tracking-[0.2em] uppercase text-xs">Loading Yap...</div>
 
   return (
     <AuthGuard>
@@ -171,13 +203,13 @@ export default function EditPage() {
                   <div>
                     <div className="flex gap-1 mb-2">
                       <button type="button" onClick={() => insertFormat('bold')} className="p-2 rounded hover:bg-gray-100">
-                        <Bold className="w-5 h-5" />
+                        <Bold className="w-5 h-5 text-gray-600" />
                       </button>
                       <button type="button" onClick={() => insertFormat('italic')} className="p-2 rounded hover:bg-gray-100">
-                        <Italic className="w-5 h-5" />
+                        <Italic className="w-5 h-5 text-gray-600" />
                       </button>
                       <button type="button" onClick={() => insertFormat('underline')} className="p-2 rounded hover:bg-gray-100">
-                        <Underline className="w-5 h-5" />
+                        <Underline className="w-5 h-5 text-gray-600" />
                       </button>
                     </div>
 
@@ -190,10 +222,6 @@ export default function EditPage() {
                         className="w-full h-48 py-2 border-0 focus:border-transparent focus:ring-0 resize-none outline-none bg-transparent placeholder:text-gray-400 text-lg"
                         maxLength={MAX_CHARS + 20}
                       />
-                    </div>
-
-                    <div className={`text-right text-xs mt-2 font-medium ${isOverLimit ? 'text-red-500' : 'text-gray-400'}`}>
-                      {charCount}/{MAX_CHARS}
                     </div>
 
                     {/* Spotify/Link Preview */}
@@ -232,22 +260,39 @@ export default function EditPage() {
                       </div>
                     )}
 
-                    <div className="mt-6 flex flex-col gap-2">
-                      <label className="text-sm font-bold text-gray-900">Hashtags (comma separated)</label>
+                    <div className="mt-8 pt-6 border-t border-gray-50">
+                      <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1 block">Hashtags (Separate with comma)</label>
                       <input
                         type="text"
                         value={hashtags}
                         onChange={(e) => setHashtags(e.target.value)}
-                        placeholder="e.g. keyyap, music, chill"
-                        className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl focus:ring-0 focus:border-primary transition-all text-sm"
+                        placeholder="introvert, thoughts, daily"
+                        className="w-full py-2 border-0 focus:border-transparent focus:ring-0 outline-none bg-transparent text-gray-700 placeholder:text-gray-300"
                       />
+                      {trendingTags.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-2 mt-4">
+                          <span className="text-xs text-gray-400 flex items-center gap-1 font-bold uppercase tracking-wider">
+                            <TrendingUp className="w-3 h-3" /> Trending:
+                          </span>
+                          {trendingTags.map(tag => (
+                            <button
+                              key={tag}
+                              type="button"
+                              onClick={() => handleAppendTag(tag)}
+                              className="text-xs bg-gray-50 hover:bg-gray-100 text-gray-600 px-3 py-1.5 rounded-full transition-colors font-bold border border-gray-100"
+                            >
+                              #{tag}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     <div className="mt-8">
                       <button
                         onClick={handleUpdate}
-                        disabled={saving || isOverLimit || !content.trim()}
-                        className="w-full bg-primary text-white py-4 rounded-full font-bold text-lg hover:opacity-90 transition-all disabled:opacity-50 shadow-lg shadow-primary/20"
+                        disabled={saving || charCount > MAX_CHARS || !content.trim()}
+                        className="w-full bg-primary text-white py-4 rounded-full font-black text-lg hover:shadow-lg hover:shadow-primary/20 hover:-translate-y-0.5 transition-all active:scale-[0.98] disabled:opacity-50 shadow-lg shadow-primary/20"
                       >
                         {saving ? 'Updating...' : 'Save Changes'}
                       </button>
@@ -256,9 +301,12 @@ export default function EditPage() {
                 </form>
               </div>
             </main>
+            <RightSidebar />
           </div>
         </div>
-        <Navigation />
+        <div className="lg:hidden">
+          <Navigation />
+        </div>
       </div>
     </AuthGuard>
   )

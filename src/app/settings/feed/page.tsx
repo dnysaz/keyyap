@@ -69,7 +69,7 @@ export default function FeedSettingsPage() {
                 <p className="text-sm text-gray-500 px-1 uppercase tracking-wider font-bold">Privacy & Visibility</p>
                 
                 {/* Hide from Global Switch */}
-                <div className="flex items-center justify-between p-4 border border-gray-100 rounded-2xl bg-white shadow-sm">
+                <div className="flex items-center justify-between p-4 border border-gray-100 rounded-2xl bg-white">
                   <div className="flex items-center gap-4">
                     <div className="p-2.5 bg-orange-50 text-orange-600 rounded-xl">
                       <Globe className="w-5 h-5" />
@@ -95,7 +95,7 @@ export default function FeedSettingsPage() {
                 </div>
 
                 {/* Hide from Search Switch */}
-                <div className="flex items-center justify-between p-4 border border-gray-100 rounded-2xl bg-white shadow-sm">
+                <div className="flex items-center justify-between p-4 border border-gray-100 rounded-2xl bg-white">
                   <div className="flex items-center gap-4">
                     <div className="p-2.5 bg-orange-50 text-orange-600 rounded-xl">
                       <Search className="w-5 h-5" />

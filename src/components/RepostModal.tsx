@@ -41,6 +41,27 @@ export default function RepostModal({ isOpen, onClose, originalPost, onSuccess }
   const charCount = content.length
   const isOverLimit = charCount > MAX_CHARS
 
+  // Load draft from localStorage on mount
+  useEffect(() => {
+    if (isOpen && originalPost?.id) {
+      const saved = localStorage.getItem(`draft-repost-${originalPost.id}`)
+      const savedTags = localStorage.getItem(`draft-repost-tags-${originalPost.id}`)
+      if (saved) setContent(saved)
+      if (savedTags) setHashtags(savedTags)
+    }
+  }, [isOpen, originalPost?.id])
+
+  // Save draft to localStorage
+  useEffect(() => {
+    if (isOpen && originalPost?.id) {
+      if (content) localStorage.setItem(`draft-repost-${originalPost.id}`, content)
+      else localStorage.removeItem(`draft-repost-${originalPost.id}`)
+
+      if (hashtags) localStorage.setItem(`draft-repost-tags-${originalPost.id}`, hashtags)
+      else localStorage.removeItem(`draft-repost-tags-${originalPost.id}`)
+    }
+  }, [content, hashtags, isOpen, originalPost?.id])
+
   // Check for links in original post content to show preview
   useEffect(() => {
     if (originalPost?.content) {
@@ -165,6 +186,10 @@ export default function RepostModal({ isOpen, onClose, originalPost, onSuccess }
       })
 
       if (postError) throw postError
+
+      // Clear draft on success
+      localStorage.removeItem(`draft-repost-${originalPost.id}`)
+      localStorage.removeItem(`draft-repost-tags-${originalPost.id}`)
 
       onSuccess?.()
       onClose()

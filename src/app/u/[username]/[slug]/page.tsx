@@ -189,6 +189,22 @@ export default function PostDetailPage() {
 
   // Auth is handled by AuthProvider — no need to call fetchUser() here
 
+  // Load comment draft from localStorage
+  useEffect(() => {
+    if (post?.id) {
+      const saved = localStorage.getItem(`draft-comment-${post.id}`)
+      if (saved) setNewComment(saved)
+    }
+  }, [post?.id])
+
+  // Save comment draft to localStorage
+  useEffect(() => {
+    if (post?.id) {
+      if (newComment) localStorage.setItem(`draft-comment-${post.id}`, newComment)
+      else localStorage.removeItem(`draft-comment-${post.id}`)
+    }
+  }, [newComment, post?.id])
+
   useEffect(() => {
     let isMounted = true
 
@@ -428,6 +444,9 @@ export default function PostDetailPage() {
       }).select().single()
 
       if (error) throw error
+
+      // Clear draft on success
+      if (post?.id) localStorage.removeItem(`draft-comment-${post.id}`)
 
       // Update local count and re-fetch to show new comment
       setPost((p: any) => ({ ...p, comments_count: (p?.comments_count || 0) + 1 }))

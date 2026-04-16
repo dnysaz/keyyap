@@ -35,6 +35,23 @@ export default function CreatePage() {
   const charCount = content.length
   const isOverLimit = charCount > MAX_CHARS
 
+  // Load draft from localStorage on mount
+  useEffect(() => {
+    const savedContent = localStorage.getItem('draft-post-content')
+    const savedHashtags = localStorage.getItem('draft-post-hashtags')
+    if (savedContent) setContent(savedContent)
+    if (savedHashtags) setHashtags(savedHashtags)
+  }, [])
+
+  // Auto-save draft to localStorage whenever content or hashtags change
+  useEffect(() => {
+    if (content) localStorage.setItem('draft-post-content', content)
+    else localStorage.removeItem('draft-post-content')
+    
+    if (hashtags) localStorage.setItem('draft-post-hashtags', hashtags)
+    else localStorage.removeItem('draft-post-hashtags')
+  }, [content, hashtags])
+
   useEffect(() => {
     fetchTrendingTags()
     fetchFollowing()
@@ -257,6 +274,10 @@ export default function CreatePage() {
         setLoading(false)
         return
       }
+
+      // Clear drafts on success
+      localStorage.removeItem('draft-post-content')
+      localStorage.removeItem('draft-post-hashtags')
 
       router.push('/')
     } catch (err) {

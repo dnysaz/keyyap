@@ -1052,78 +1052,90 @@ export default function PostDetailPage() {
             </div>
 
             {/* Truly Fixed Bottom Comment Input with Perfect Alignment */}
-            {user && (
-              <div className="fixed bottom-0 left-0 right-0 z-40 pointer-events-none">
-                <div className="lg:ml-[72px] xl:ml-[260px] flex justify-center">
-                  <div className="flex w-full max-w-[1050px] items-start pointer-events-none">
+            <div className="fixed bottom-0 left-0 right-0 z-40 pointer-events-none">
+              <div className="lg:ml-[72px] xl:ml-[260px] flex justify-center">
+                <div className="flex w-full max-w-[1050px] items-start pointer-events-none">
 
-                    {/* Input Container - Perfectly Matches Main Column */}
-                    <div className="flex-1 max-w-2xl bg-white/95 backdrop-blur-md border-t border-x border-gray-100 mb-[64px] lg:mb-0 shadow-[0_-8px_30px_rgba(0,0,0,0.04)] pointer-events-auto relative">
-                      
-                      {/* Minimalist Mention Suggestions UI */}
-                      {showMentionSuggestions && filteredMentions.length > 0 && (
-                        <div className="absolute bottom-full left-0 right-0 w-full px-2 pb-1 pointer-events-auto z-50">
-                          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden animate-in fade-in slide-in-from-bottom-1 duration-200">
-                            <div className="max-h-[220px] overflow-y-auto py-1">
-                              {filteredMentions.map((suggestion, idx) => (
-                                <button
-                                  key={suggestion.id}
-                                  onClick={() => insertMention(suggestion)}
-                                  onMouseEnter={() => setHighlightedIndex(idx)}
-                                  className={`w-full flex items-center gap-3 p-2.5 px-4 transition-colors ${idx === highlightedIndex ? 'bg-gray-50' : 'hover:bg-gray-50/50'}`}
-                                >
-                                  <Avatar url={suggestion.avatar_url} username={suggestion.username} size="xs" />
-                                  <div className="text-left flex-1 min-w-0">
-                                    <div className="font-bold text-[13px] text-gray-900 truncate tracking-tight">{suggestion.full_name || suggestion.username}</div>
-                                    <div className="text-[11px] text-gray-400 truncate mt-0.5">@{suggestion.username}</div>
-                                  </div>
-                                </button>
-                              ))}
+                  {/* Input Container - Perfectly Matches Main Column */}
+                  <div className="flex-1 max-w-2xl bg-white/95 backdrop-blur-md border-t border-x border-gray-100 mb-[64px] lg:mb-0 shadow-[0_-8px_30px_rgba(0,0,0,0.04)] pointer-events-auto relative">
+                    
+                    {user ? (
+                      <>
+                        {/* Minimalist Mention Suggestions UI */}
+                        {showMentionSuggestions && filteredMentions.length > 0 && (
+                          <div className="absolute bottom-full left-0 right-0 w-full px-2 pb-1 pointer-events-auto z-50">
+                            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden animate-in fade-in slide-in-from-bottom-1 duration-200">
+                              <div className="max-h-[220px] overflow-y-auto py-1">
+                                {filteredMentions.map((suggestion, idx) => (
+                                  <button
+                                    key={suggestion.id}
+                                    onClick={() => insertMention(suggestion)}
+                                    onMouseEnter={() => setHighlightedIndex(idx)}
+                                    className={`w-full flex items-center gap-3 p-2.5 px-4 transition-colors ${idx === highlightedIndex ? 'bg-gray-50' : 'hover:bg-gray-50/50'}`}
+                                  >
+                                    <Avatar url={suggestion.avatar_url} username={suggestion.username} size="xs" />
+                                    <div className="text-left flex-1 min-w-0">
+                                      <div className="font-bold text-[13px] text-gray-900 truncate tracking-tight">{suggestion.full_name || suggestion.username}</div>
+                                      <div className="text-[11px] text-gray-400 truncate mt-0.5">@{suggestion.username}</div>
+                                    </div>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="p-3 flex items-end gap-3 w-full">
+                          <div className="shrink-0 mb-1">
+                            <Avatar url={currentProfile?.avatar_url || undefined} username={currentProfile?.username || 'me'} size="sm" />
+                          </div>
+                          <div className="flex-1 min-w-0 flex flex-col">
+                            {replyingTo && (
+                              <div className="flex items-center gap-2 text-xs text-gray-400 mb-1.5 ml-1">
+                                <span>Replying to @{replyingTo.profiles?.username}</span>
+                                <button onClick={() => setReplyingTo(null)} className="font-bold text-primary hover:underline">Cancel</button>
+                              </div>
+                            )}
+                            <div className="bg-gray-50 rounded-[24px] border border-gray-100 p-1.5 flex items-end focus-within:bg-white focus-within:border-primary/30 focus-within:ring-4 focus-within:ring-primary/5 transition-all">
+                              <textarea
+                                ref={commentInputRef}
+                                value={newComment}
+                                onChange={handleInputChange}
+                                onKeyDown={handleCommentKeyDown}
+                                placeholder="Post your reply"
+                                className="flex-1 border-0 focus:ring-0 outline-none ring-0 resize-none text-[15px] bg-transparent placeholder:text-gray-400 py-2 px-3 min-h-[36px] max-h-[150px] overflow-y-auto custom-scrollbar"
+                                rows={1}
+                              />
+                              <button
+                                onClick={handleSubmitComment}
+                                disabled={!newComment.trim()}
+                                className="bg-primary text-white h-9 w-9 flex items-center justify-center rounded-full disabled:opacity-50 hover:bg-primary/90 transition-colors shrink-0 mb-0.5 mr-0.5 shadow-sm"
+                                title="Reply"
+                              >
+                                <SendHorizontal className="w-4.5 h-4.5" />
+                              </button>
                             </div>
                           </div>
                         </div>
-                      )}
-
-                      <div className="p-3 flex items-end gap-3 w-full">
-                        <div className="shrink-0 mb-1">
-                          <Avatar url={currentProfile?.avatar_url || undefined} username={currentProfile?.username || 'me'} size="sm" />
+                      </>
+                    ) : (
+                      <div className="p-4 py-5 flex items-center justify-between w-full bg-white">
+                        <div className="flex flex-col">
+                          <span className="text-[15px] text-gray-900 font-bold">Don't miss what's happening</span>
+                          <span className="text-[13px] text-gray-500">Log in or sign up to join the conversation.</span>
                         </div>
-                        <div className="flex-1 min-w-0 flex flex-col">
-                          {replyingTo && (
-                            <div className="flex items-center gap-2 text-xs text-gray-400 mb-1.5 ml-1">
-                              <span>Replying to @{replyingTo.profiles?.username}</span>
-                              <button onClick={() => setReplyingTo(null)} className="font-bold text-primary hover:underline">Cancel</button>
-                            </div>
-                          )}
-                          <div className="bg-gray-50 rounded-[24px] border border-gray-100 p-1.5 flex items-end focus-within:bg-white focus-within:border-primary/30 focus-within:ring-4 focus-within:ring-primary/5 transition-all">
-                            <textarea
-                              ref={commentInputRef}
-                              value={newComment}
-                              onChange={handleInputChange}
-                              onKeyDown={handleCommentKeyDown}
-                              placeholder="Post your reply"
-                              className="flex-1 border-0 focus:ring-0 outline-none ring-0 resize-none text-[15px] bg-transparent placeholder:text-gray-400 py-2 px-3 min-h-[36px] max-h-[150px] overflow-y-auto custom-scrollbar"
-                              rows={1}
-                            />
-                            <button
-                              onClick={handleSubmitComment}
-                              disabled={!newComment.trim()}
-                              className="bg-primary text-white h-9 w-9 flex items-center justify-center rounded-full disabled:opacity-50 hover:bg-primary/90 transition-colors shrink-0 mb-0.5 mr-0.5 shadow-sm"
-                              title="Reply"
-                            >
-                              <SendHorizontal className="w-4.5 h-4.5" />
-                            </button>
-                          </div>
-                        </div>
+                        <Link href="/login" className="px-5 py-2.5 rounded-full bg-primary text-white text-[14px] font-bold hover:bg-primary-hover transition-colors shadow-sm ml-4 shrink-0">
+                          Log in
+                        </Link>
                       </div>
-                    </div>
-
-                    {/* Right Sidebar Spacer to keep main centered correctly */}
-                    <div className="hidden lg:block w-[350px] shrink-0" />
+                    )}
                   </div>
+
+                  {/* Right Sidebar Spacer to keep main centered correctly */}
+                  <div className="hidden lg:block w-[350px] shrink-0" />
                 </div>
               </div>
-            )}
+            </div>
           </main>
           <RightSidebar />
         </div>

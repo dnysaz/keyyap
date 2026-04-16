@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/authStore'
 import Navigation from '@/components/Navigation'
 import AuthGuard from '@/components/AuthGuard'
+import Avatar from '@/components/Avatar'
 
 const MAX_CHARS = 512
 
@@ -288,9 +289,10 @@ export default function CreatePage() {
                       </button>
                     </div>
                     <div className="relative">
+                      {/* Minimalist Mention Suggestions UI */}
                       {showMentionSuggestions && filteredMentions.length > 0 && (
                         <div className="absolute bottom-full left-0 right-0 w-full mb-2 pointer-events-auto z-50">
-                          <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-1 duration-200">
+                          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden animate-in fade-in slide-in-from-bottom-1 duration-200 uppercase tracking-tight">
                             <div className="max-h-[220px] overflow-y-auto py-1">
                               {filteredMentions.map((suggestion, idx) => (
                                 <button
@@ -300,12 +302,10 @@ export default function CreatePage() {
                                   onMouseEnter={() => setHighlightedIndex(idx)}
                                   className={`w-full flex items-center gap-3 p-2.5 px-4 transition-colors ${idx === highlightedIndex ? 'bg-gray-50' : 'hover:bg-gray-50/50'}`}
                                 >
-                                  <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-100">
-                                    <img src={suggestion.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${suggestion.username}`} className="w-full h-full object-cover" alt="" />
-                                  </div>
+                                  <Avatar url={suggestion.avatar_url} username={suggestion.username} size="xs" />
                                   <div className="text-left flex-1 min-w-0">
-                                    <div className="font-bold text-[13px] text-gray-900 truncate tracking-tight">{suggestion.full_name || suggestion.username}</div>
-                                    <div className="text-[11px] text-gray-400 truncate mt-0.5">@{suggestion.username}</div>
+                                    <div className="font-bold text-[13px] text-gray-900 truncate normal-case">{suggestion.full_name || suggestion.username}</div>
+                                    <div className="text-[11px] text-gray-400 truncate mt-0.5 normal-case">@{suggestion.username}</div>
                                   </div>
                                 </button>
                               ))}

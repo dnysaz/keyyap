@@ -250,9 +250,10 @@ export default function RepostModal({ isOpen, onClose, originalPost, onSuccess }
               </div>
 
               <div className="relative">
+                {/* Minimalist Mention Suggestions UI */}
                 {showMentionSuggestions && filteredMentions.length > 0 && (
                   <div className="absolute bottom-full left-0 right-0 w-full mb-2 pointer-events-auto z-50">
-                    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-1 duration-200">
+                    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden animate-in fade-in slide-in-from-bottom-1 duration-200">
                       <div className="max-h-[220px] overflow-y-auto py-1">
                         {filteredMentions.map((suggestion, idx) => (
                           <button

@@ -203,7 +203,13 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
+-- CLEANUP: Menghapus semua kemungkinan trigger ganda yang pernah dibuat sebelumnya
+DROP TRIGGER IF EXISTS tr_update_comments ON public.comments;
+DROP TRIGGER IF EXISTS on_comment_inserted ON public.comments;
+DROP TRIGGER IF EXISTS update_comment_counter ON public.comments;
+
 -- FUNC 2: Handle Counter Updates (Likes, Comments, Shares)
+-- Dioptimalkan agar lebih kuat dan tidak double
 CREATE OR REPLACE FUNCTION public.handle_counters()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -215,9 +221,9 @@ BEGIN
     END IF;
   ELSIF TG_TABLE_NAME = 'comments' THEN
     IF TG_OP = 'INSERT' THEN
-      UPDATE public.posts SET comments_count = comments_count + 1 WHERE id = NEW.post_id;
+      UPDATE public.posts SET comments_count = (SELECT count(*) FROM public.comments WHERE post_id = NEW.post_id AND is_deleted = false) WHERE id = NEW.post_id;
     ELSIF TG_OP = 'DELETE' THEN
-      UPDATE public.posts SET comments_count = GREATEST(comments_count - 1, 0) WHERE id = OLD.post_id;
+      UPDATE public.posts SET comments_count = (SELECT count(*) FROM public.comments WHERE post_id = OLD.post_id AND is_deleted = false) WHERE id = OLD.post_id;
     END IF;
   ELSIF TG_TABLE_NAME = 'reposts' THEN
     IF TG_OP = 'INSERT' THEN
@@ -230,6 +236,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
+-- Pasang kembali trigger tunggal yang benar
 DROP TRIGGER IF EXISTS tr_update_likes ON public.post_likes;
 CREATE TRIGGER tr_update_likes AFTER INSERT OR DELETE ON public.post_likes FOR EACH ROW EXECUTE FUNCTION public.handle_counters();
 

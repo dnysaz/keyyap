@@ -190,11 +190,15 @@ export default function PostCard({ post, currentUserId, onLikeChange, reposterUs
 
   function formatContent(content: string) {
     if (!content) return null
-    // Detect URLs and wrap in <a> tags with truncation
+    // Detect URLs and Mentions and wrap in <a> tags
     let formatted = content
       .replace(/(https?:\/\/[^\s]+)/g, (url) => {
         const displayUrl = url.length > 40 ? url.substring(0, 40) + '...' : url
         return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline font-medium">${displayUrl}</a>`
+      })
+      .replace(/@(\w+)/g, (mention) => {
+        const username = mention.substring(1)
+        return `<a href="/u/${username}" class="text-primary hover:underline font-bold">@${username}</a>`
       })
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.+?)\*/g, '<em>$1</em>')

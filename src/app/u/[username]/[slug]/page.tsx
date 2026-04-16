@@ -464,10 +464,10 @@ export default function PostDetailPage() {
       await supabase.from('notifications').insert(notifsToInsert)
     }
 
-    setCommentCount(prev => prev + 1)
+    // 3. Update local count (Optimistic UI)
     setPost((p: any) => ({ ...p, comments_count: (p?.comments_count || 0) + 1 }))
-
-    // 3. Re-fetch comments using the shared function
+    
+    // 4. Re-fetch comments using the shared function
     await fetchCommentsForPost(post.id)
   }
 

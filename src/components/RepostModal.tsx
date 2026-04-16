@@ -115,7 +115,7 @@ export default function RepostModal({ isOpen, onClose, originalPost, onSuccess }
     const words = val.split(/[\s\n]/)
     const lastWord = words[words.length - 1]
     
-    if (lastWord.startsWith('@') && lastWord.length >= 3) {
+    if (lastWord.startsWith('@') && lastWord.length >= 2) {
       setMentionSearch(lastWord.substring(1))
       setShowMentionSuggestions(true)
       setHighlightedIndex(0)

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { X, Bold, Italic, Underline, Search, TrendingUp } from 'lucide-react'
+import { X, Bold, Italic, Underline, Search, TrendingUp, Play } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/authStore'
 import Sidebar from '@/components/Sidebar'
@@ -10,6 +10,8 @@ import RightSidebar from '@/components/RightSidebar'
 import Navigation from '@/components/Navigation'
 import AuthGuard from '@/components/AuthGuard'
 import Avatar from '@/components/Avatar'
+import { getSlug, formatDate } from '@/lib/utils'
+import Link from 'next/link'
 
 const MAX_CHARS = 512
 
@@ -27,7 +29,30 @@ export default function EditPage() {
   const [previewData, setPreviewData] = useState<any>(null)
   const [previewLoading, setPreviewLoading] = useState(false)
   
+  // Quoted Post states
+  const [quotedPost, setQuotedPost] = useState<any>(null)
+  const [quotedLinkMetas, setQuotedLinkMetas] = useState<any[]>([])
+  
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  const extractYoutubeId = (url: string) => {
+    const match = url.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/)
+    return match ? match[1] : null
+  }
+
+  const extractSpotifyId = (url: string) => {
+    const match = url.match(/https?:\/\/open\.spotify\.com\/(track|album|playlist)\/([a-zA-Z0-9]+)/)
+    if (!match) return null
+    return { type: match[1], id: match[2] }
+  }
+
+  const extractDomain = (url: string) => {
+    try {
+      return new URL(url).hostname.replace('www.', '')
+    } catch {
+      return url
+    }
+  }
 
   // Fetch target post data
   useEffect(() => {
@@ -40,7 +65,13 @@ export default function EditPage() {
 
       const { data, error } = await supabase
         .from('posts')
-        .select('*')
+        .select(`
+          *,
+          quoted:quoted_post_id (
+            *,
+            profiles:user_id (id, username, full_name, avatar_url)
+          )
+        `)
         .eq('id', postId)
         .single()
 
@@ -52,12 +83,36 @@ export default function EditPage() {
 
       setContent(data.content || '')
       setHashtags(Array.isArray(data.hashtags) ? data.hashtags.join(', ') : '')
+      
+      if (data.quoted) {
+        setQuotedPost(data.quoted)
+        fetchQuotedLinks(data.quoted.content || '')
+      }
+      
       setLoading(false)
     }
 
     fetchPost()
     fetchTrendingTags()
   }, [params.slug])
+
+  async function fetchQuotedLinks(text: string) {
+    const urlRegex = /(https?:\/\/[^\s]+)/g
+    const urls = text.match(urlRegex)
+    if (urls) {
+      const metas = await Promise.all(
+        urls.map(async (url) => {
+          if (extractSpotifyId(url)) return null
+          try {
+            const res = await fetch(`/api/og?url=${encodeURIComponent(url)}`)
+            const d = await res.json()
+            return d.error ? null : d
+          } catch { return null }
+        })
+      )
+      setQuotedLinkMetas(metas.filter(Boolean))
+    }
+  }
 
   async function fetchTrendingTags() {
     const { data } = await supabase.from('posts').select('hashtags').not('hashtags', 'is', null).limit(100)
@@ -78,13 +133,7 @@ export default function EditPage() {
     }
   }
 
-  const extractSpotifyId = (url: string) => {
-    const match = url.match(/https?:\/\/open\.spotify\.com\/(track|album|playlist)\/([a-zA-Z0-9]+)/)
-    if (!match) return null
-    return { type: match[1], id: match[2] }
-  }
-
-  // Preview Logic
+  // Preview Logic (for CURRENT typing)
   useEffect(() => {
     const urlRegex = /(https?:\/\/[^\s]+)/
     const match = content.match(urlRegex)
@@ -176,10 +225,10 @@ export default function EditPage() {
     }
   }
 
+  if (loading) return <div className="min-h-screen bg-white flex items-center justify-center font-bold text-gray-300 animate-pulse tracking-[0.2em] uppercase text-xs">Loading Yap...</div>
+
   const charCount = content.length
   const isOverLimit = charCount > MAX_CHARS
-
-  if (loading) return <div className="min-h-screen bg-white flex items-center justify-center font-bold text-gray-300 animate-pulse tracking-[0.2em] uppercase text-xs">Loading Yap...</div>
 
   return (
     <AuthGuard>
@@ -189,7 +238,7 @@ export default function EditPage() {
           <div className="flex w-full max-w-[1050px]">
             <main className="flex-1 max-w-2xl border-x border-gray-100 min-h-screen relative">
               <div className="sticky top-0 bg-white/80 backdrop-blur-md z-10 px-4 py-3 border-b border-gray-50 flex items-center justify-between">
-                <button onClick={() => router.back()} className="text-gray-500 hover:bg-gray-100 p-2 rounded-full transition-colors flex shrink-0">
+                <button type="button" onClick={() => router.back()} className="text-gray-500 hover:bg-gray-100 p-2 rounded-full transition-colors flex shrink-0">
                   <X className="w-6 h-6" />
                 </button>
                 <h1 className="text-lg font-bold">Edit Post</h1>
@@ -224,9 +273,9 @@ export default function EditPage() {
                       />
                     </div>
 
-                    {/* Spotify/Link Preview */}
+                    {/* Spotify/Link Preview for typing content */}
                     {(previewLoading || previewData) && (
-                      <div className="mt-4 border border-gray-100 rounded-2xl overflow-hidden bg-white shadow-sm transition-all">
+                      <div className="mt-4 border border-gray-100 rounded-2xl overflow-hidden bg-white shadow-sm transition-all mb-4">
                         {previewLoading ? (
                           <div className="w-full py-8 text-center text-xs text-gray-400 font-medium tracking-widest animate-pulse uppercase">Fetching preview...</div>
                         ) : previewData?.spotify ? (
@@ -251,12 +300,73 @@ export default function EditPage() {
                             )}
                             <div className="p-4 flex-1 min-w-0">
                               <div className="flex items-center gap-1.5 text-[12px] text-gray-500 mb-1">
-                                <Search className="w-3 h-3" /> {new URL(previewData.url).hostname.replace('www.', '')}
+                                <Search className="w-3 h-3" /> {extractDomain(previewData.url)}
                               </div>
                               <h4 className="font-bold text-gray-900 text-[15px] line-clamp-1 group-hover:text-primary transition-colors">{previewData.title || 'Link Preview'}</h4>
                             </div>
                           </a>
                         )}
+                      </div>
+                    )}
+
+                    {/* QUOTED POST PREVIEW - The missing piece */}
+                    {quotedPost && (
+                      <div className="mt-4 p-4 border border-gray-100 rounded-2xl bg-gray-50/30">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Avatar url={quotedPost.profiles?.avatar_url} username={quotedPost.profiles?.username} size="xs" />
+                          <span className="font-bold text-sm">{quotedPost.profiles?.full_name || quotedPost.profiles?.username}</span>
+                          <span className="text-gray-500 text-xs">@{quotedPost.profiles?.username}</span>
+                          <span className="text-gray-400 text-xs">· {formatDate(quotedPost.created_at)}</span>
+                        </div>
+                        <p className="text-sm text-gray-700 whitespace-pre-wrap line-clamp-3 mb-3">{quotedPost.content}</p>
+                        
+                        {/* Quoted Media/Spotify */}
+                        <div className="space-y-2">
+                          {quotedLinkMetas.map((link, idx) => {
+                            const ytId = extractYoutubeId(link.url)
+                            if (ytId) {
+                                return (
+                                  <div key={idx} className="rounded-xl overflow-hidden border border-gray-100 bg-black aspect-video relative">
+                                    <img src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`} className="w-full h-full object-cover opacity-70" alt="" />
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                        <Play className="w-8 h-8 text-white fill-current" />
+                                    </div>
+                                  </div>
+                                )
+                            }
+                            return (
+                              <div key={idx} className="rounded-xl border border-gray-100 overflow-hidden bg-white flex items-stretch h-14">
+                                {link.image && <img src={link.image} className="w-16 h-full object-cover shrink-0" alt="" />}
+                                <div className="p-2 flex-1 min-w-0 flex flex-col justify-center">
+                                  <h4 className="font-bold text-[12px] text-gray-900 truncate">{link.title || link.url}</h4>
+                                  <p className="text-[9px] text-gray-500 uppercase tracking-widest">{extractDomain(link.url)}</p>
+                                </div>
+                              </div>
+                            )
+                          })}
+
+                          {/* Quoted Spotify */}
+                          {(() => {
+                            const urlRegex = /(https?:\/\/[^\s]+)/g
+                            const urls = quotedPost.content?.match(urlRegex) || []
+                            return urls.map((url: string, idx: number) => {
+                              const spotify = extractSpotifyId(url)
+                              if (!spotify) return null
+                              return (
+                                <div key={`q-spot-${idx}`} className="rounded-xl overflow-hidden border border-gray-100">
+                                  <iframe
+                                    src={`https://open.spotify.com/embed/${spotify.type}/${spotify.id}?utm_source=generator&theme=0`}
+                                    width="100%"
+                                    height="80"
+                                    frameBorder="0"
+                                    allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                                    loading="lazy"
+                                  />
+                                </div>
+                              )
+                            })
+                          })()}
+                        </div>
                       </div>
                     )}
 
@@ -291,7 +401,7 @@ export default function EditPage() {
                     <div className="mt-8">
                       <button
                         onClick={handleUpdate}
-                        disabled={saving || charCount > MAX_CHARS || !content.trim()}
+                        disabled={saving || isOverLimit || !content.trim()}
                         className="w-full bg-primary text-white py-4 rounded-full font-black text-lg hover:shadow-lg hover:shadow-primary/20 hover:-translate-y-0.5 transition-all active:scale-[0.98] disabled:opacity-50 shadow-lg shadow-primary/20"
                       >
                         {saving ? 'Updating...' : 'Save Changes'}

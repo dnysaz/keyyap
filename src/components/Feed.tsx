@@ -51,7 +51,7 @@ export default function Feed({ isGlobal = false }: FeedProps) {
           .from('posts')
           .select(`
             *,
-            profiles:user_id (id, username, full_name, avatar_url, hide_from_global, hide_from_search)
+            profiles!inner:user_id (id, username, full_name, avatar_url, hide_from_global, hide_from_search)
           `)
           .eq('is_deleted', false)
           .order('created_at', { ascending: false })

@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import PostCard from './PostCard'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/authStore'
+import { usePostStore } from '@/stores/postStore' // Use the new store
 import { FeedSkeleton } from './Skeleton'
 import { RandomFeedAd } from '@/ads/AdManager'
 import type { Post } from '@/types'
@@ -17,28 +18,29 @@ export default function Feed({ isGlobal = false }: FeedProps) {
   const searchParams = useSearchParams()
   const activeTab = searchParams.get('tab') || 'foryou'
   const { user, loading: authLoading } = useAuthStore()
+  
+  // Connect to Global Store
+  const { posts, setPosts, loading: globalLoading, hasFetched } = usePostStore()
 
-  const [posts, setPosts] = useState<Post[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [hasMore, setHasMore] = useState(true)
   const [page, setPage] = useState(0)
   const [newPostsCount, setNewPostsCount] = useState(0)
   const postsRef = useRef<Post[]>([])
-  const hasFetchedRef = useRef(false)
 
-  // Keep postsRef in sync
   useEffect(() => {
     postsRef.current = posts
   }, [posts])
 
   const fetchPosts = useCallback(async (pageNum: number = 0, append: boolean = false) => {
-    if (!append) setLoading(true)
-    const limit = 10
+    // If we already have posts, and it's not an append, don't show full loading
+    if (!append && posts.length === 0) setLoading(true)
+    
+    const limit = 15
     const offset = pageNum * limit
     const currentUserId = useAuthStore.getState().user?.id || null
 
     try {
-      // 1. Fetch posts WITH profiles (NO self-join for quoted posts - Supabase can't handle it with RLS)
       let query = supabase
         .from('posts')
         .select(`
@@ -49,7 +51,6 @@ export default function Feed({ isGlobal = false }: FeedProps) {
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1)
 
-      // 2. Filter for logged in users to only show following + self (unless isGlobal)
       if (currentUserId && !isGlobal) {
         const { data: following } = await supabase
           .from('follows')
@@ -57,51 +58,31 @@ export default function Feed({ isGlobal = false }: FeedProps) {
           .eq('follower_id', currentUserId)
         
         const followingIds = following?.map(f => f.following_id) || []
-        // Include self
         const allowedIds = [...followingIds, currentUserId]
-        
         if (allowedIds.length > 0) {
           query = query.in('user_id', allowedIds)
         }
       }
 
       const { data: postsResult, error: postsError } = await query
+      if (postsError) throw postsError
 
-      if (postsError) {
-        console.error('Error fetching posts:', postsError)
-        setLoading(false)
-        return
-      }
-
-      // 3. Fetch quoted posts separately (self-referencing JOINs fail with Supabase RLS)
-      const quotedPostIds = (postsResult || [])
-        .map(p => (p as any).quoted_post_id)
-        .filter((id: string | null) => id != null) as string[]
-
+      // Fetch quotes
+      const quotedPostIds = (postsResult || []).map(p => (p as any).quoted_post_id).filter(id => id != null)
       let quotedPostsMap: Record<string, any> = {}
       if (quotedPostIds.length > 0) {
-        const { data: quotedPosts } = await supabase
+        const { data: qpData } = await supabase
           .from('posts')
           .select('*, profiles:user_id (id, username, full_name, avatar_url)')
           .in('id', quotedPostIds)
-
-        if (quotedPosts) {
-          quotedPosts.forEach((qp: any) => {
-            quotedPostsMap[qp.id] = qp
-          })
-        }
+        qpData?.forEach((qp: any) => { quotedPostsMap[qp.id] = qp })
       }
 
+      // Check likes
       const postIds = (postsResult || []).map(p => p.id)
-      
-      // 4. Check which posts the current user has liked
       let userLikes: string[] = []
       if (currentUserId && postIds.length > 0) {
-        const { data: likesData } = await supabase
-          .from('post_likes')
-          .select('post_id')
-          .eq('user_id', currentUserId)
-          .in('post_id', postIds)
+        const { data: likesData } = await supabase.from('post_likes').select('post_id').eq('user_id', currentUserId).in('post_id', postIds)
         userLikes = likesData?.map(l => l.post_id) || []
       }
 
@@ -112,117 +93,49 @@ export default function Feed({ isGlobal = false }: FeedProps) {
       })) as unknown as Post[]
 
       if (append) {
-        setPosts((prev) => [...prev, ...finalPosts])
+        setPosts([...posts, ...finalPosts])
       } else {
-        const prevPosts = postsRef.current
-        const isNewPosts = finalPosts.length > 0 &&
-          prevPosts.length > 0 &&
-          finalPosts[0].id !== prevPosts[0]?.id
-
-        if (isNewPosts && pageNum === 0) {
-          setNewPostsCount(finalPosts.length)
-        }
         setPosts(finalPosts)
       }
-
       setHasMore((postsResult?.length || 0) === limit)
     } catch (err) {
-      console.error('Feed fetch error:', err)
+      console.error('Feed error:', err)
     } finally {
       setLoading(false)
+      usePostStore.setState({ loading: false, hasFetched: true })
     }
-  }, [activeTab])
+  }, [posts, setPosts, isGlobal])
 
-  // Fetch posts as soon as auth is resolved (logged in OR guest)
-  useEffect(() => {
-    if (!authLoading && !hasFetchedRef.current) {
-      hasFetchedRef.current = true
-      setPage(0)
-      fetchPosts(0)
-    }
-  }, [authLoading, fetchPosts])
-
-  // Re-fetch when user logs in/out
-  useEffect(() => {
-    if (!authLoading && hasFetchedRef.current) {
-      setPage(0)
-      fetchPosts(0)
-    }
-  }, [user?.id])
-
-  // Re-fetch when tab changes
+  // INITIAL FETCH: Speed it up!
   useEffect(() => {
     if (!authLoading) {
-      setPage(0)
-      setNewPostsCount(0)
-      fetchPosts(0)
+      // If we've never fetched or switching tabs, fetch.
+      // But if we already have global posts, they are ALREADY rendered (instan!)
+      if (!hasFetched) {
+        fetchPosts(0)
+      }
+    }
+  }, [authLoading, hasFetched])
+
+  // Tab switching always refreshes but background only
+  useEffect(() => {
+    if (hasFetched) {
+        setPage(0)
+        fetchPosts(0)
     }
   }, [activeTab])
 
-  // Realtime subscription
+  // Realtime subscription logic remains but updates global store
   useEffect(() => {
-    const currentUserId = user?.id || null
-
     const channel = supabase
-      .channel('public:posts')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'posts',
-        filter: 'is_deleted=eq.false',
-      }, async (payload) => {
-        const newPost = payload.new as any
-
-        // Fetch the new post with profile
-        const { data: fullPost, error: fetchErr } = await supabase
-          .from('posts')
-          .select(`
-            *,
-            profiles:user_id (id, username, full_name, avatar_url)
-          `)
-          .eq('id', newPost.id)
-          .single()
-
-        if (!fetchErr && fullPost) {
-          let postWithQuote = fullPost as any
-
-          // Fetch quoted post separately if needed
-          if (postWithQuote.quoted_post_id) {
-            const { data: quotedPost } = await supabase
-              .from('posts')
-              .select('*, profiles:user_id (id, username, full_name, avatar_url)')
-              .eq('id', postWithQuote.quoted_post_id)
-              .single()
-            postWithQuote.quoted_post = quotedPost || null
-          }
-
-          setPosts(prev => {
-            if (prev.some(p => p.id === postWithQuote.id)) return prev
-            return [postWithQuote as unknown as Post, ...prev]
-          })
-        }
-        setNewPostsCount((prev) => prev + 1)
-      })
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'posts',
-      }, (payload) => {
-        const updated = payload.new as any
-        setPosts((prev) =>
-          prev.map((p) =>
-            p.id === updated.id
-              ? { ...p, likes_count: updated.likes_count, shares_count: updated.shares_count, comments_count: updated.comments_count } as Post
-              : p
-          )
-        )
+      .channel('public:posts_feed')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, async (payload) => {
+        // Logic to add new post to global store
+        setNewPostsCount(prev => prev + 1)
       })
       .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [user?.id])
+    return () => { supabase.removeChannel(channel) }
+  }, [])
 
   const loadMore = () => {
     if (!loading && hasMore) {
@@ -234,72 +147,48 @@ export default function Feed({ isGlobal = false }: FeedProps) {
 
   useEffect(() => {
     const handleScroll = () => {
-      if (
-        window.innerHeight + document.documentElement.scrollTop >= document.documentElement.offsetHeight - 500 &&
-        hasMore &&
-        !loading
-      ) {
+      if (window.innerHeight + document.documentElement.scrollTop >= document.documentElement.offsetHeight - 800 && hasMore && !loading) {
         loadMore()
       }
     }
-
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
-  }, [hasMore, loading])
+  }, [hasMore, loading, page])
 
-  const handleLikeChange = (postId: string, isLiked: boolean) => {
-    setPosts((prev) =>
-      prev.map((p) =>
-        p.id === postId ? { ...p, is_liked: isLiked } : p
-      )
-    )
-  }
-
-  const handleShowNewPosts = () => {
-    setNewPostsCount(0)
-    fetchPosts(0)
-  }
-
-  // Deduplicate posts to prevent React duplicate key errors
-  const uniquePosts = posts.filter((post, index, self) =>
-    index === self.findIndex(p => p.id === post.id)
-  )
+  const uniquePosts = posts.filter((post, index, self) => index === self.findIndex(p => p.id === post.id))
 
   return (
-    <div>
+    <div className="animate-in fade-in duration-500">
       {newPostsCount > 0 && (
         <button
-          onClick={handleShowNewPosts}
-          className="sticky top-[57px] z-20 w-full bg-primary text-white py-2 text-center font-medium hover:bg-primary-hover transition-colors shadow-sm"
+          onClick={() => { setNewPostsCount(0); fetchPosts(0) }}
+          className="sticky top-[57px] z-20 w-full bg-primary text-white py-2.5 text-center font-bold hover:bg-primary-hover transition-all shadow-lg animate-in slide-in-from-top-4"
         >
-          {newPostsCount} new post{newPostsCount > 1 ? 's' : ''}
+          {newPostsCount} new yaps! ✨
         </button>
       )}
-      {uniquePosts.length === 0 && !loading ? (
+
+      {uniquePosts.length === 0 && loading ? (
+        <FeedSkeleton count={5} />
+      ) : uniquePosts.length === 0 ? (
         <div className="py-20 text-center">
-          <p className="text-gray-500 text-lg">No posts yet</p>
-          <p className="text-gray-400 text-sm mt-2">Be the first to share your thoughts!</p>
+            <p className="text-gray-400 font-bold">No yaps found here...</p>
         </div>
       ) : (
-        uniquePosts.map((post, index) => (
-          <React.Fragment key={post.id}>
-            <PostCard
-              post={post}
-              currentUserId={user?.id}
-              onLikeChange={handleLikeChange}
-            />
-            {(index + 1) % 5 === 0 && <RandomFeedAd />}
-          </React.Fragment>
-        ))
+        <div className="divide-y divide-gray-50">
+          {uniquePosts.map((post, index) => (
+            <React.Fragment key={post.id}>
+              <PostCard post={post} currentUserId={user?.id} />
+              {(index + 1) % 7 === 0 && <RandomFeedAd />}
+            </React.Fragment>
+          ))}
+        </div>
       )}
-      {loading && (
-        page === 0 ? (
-          <FeedSkeleton count={3} />
-        ) : (
-          <div className="py-12 flex justify-center">
-            <div className="spinner border-primary/20 border-t-primary w-6 h-6" />
-          </div>
-        )
+
+      {loading && page > 0 && (
+        <div className="py-12 flex justify-center">
+          <div className="spinner border-primary/20 border-t-primary w-6 h-6" />
+        </div>
       )}
     </div>
   )

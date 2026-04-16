@@ -334,8 +334,8 @@ function SearchContent() {
                       )
                     })}
                     {loading && (
-                      <div className="py-8 text-center text-gray-500 text-sm animate-pulse">
-                        Searching for more people...
+                      <div className="py-8 flex justify-center">
+                        <div className="spinner border-primary/20 border-t-primary w-5 h-5" />
                       </div>
                     )}
                   </>
@@ -353,8 +353,8 @@ function SearchContent() {
                       <PostCard key={post.id} post={post} currentUserId={user?.id} />
                     ))}
                     {loading && (
-                      <div className="py-8 text-center text-gray-500 text-sm animate-pulse">
-                        Loading more results...
+                      <div className="py-8 flex justify-center">
+                        <div className="spinner border-primary/20 border-t-primary w-5 h-5" />
                       </div>
                     )}
                   </>

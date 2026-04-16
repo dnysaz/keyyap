@@ -5,60 +5,19 @@ import Link from 'next/link'
 import { TrendingUp, Search } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { RandomSidebarAd } from '@/ads/AdManager'
-
-interface TrendingHashtag {
-  tag: string
-  count: number
-}
+import { usePostStore } from '@/stores/postStore'
 
 interface RightSidebarProps {
   hideSearch?: boolean
 }
 
 export default function RightSidebar({ hideSearch = false }: RightSidebarProps) {
-  const [hashtags, setHashtags] = useState<TrendingHashtag[]>([])
-  const [loading, setLoading] = useState(true)
+  const { trendingTags, fetchTrending } = usePostStore()
   const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
-    fetchTrendingTags()
-  }, [])
-
-  async function fetchTrendingTags() {
-    setLoading(true)
-    // Trending from last 7 days for the sidebar
-    const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-    
-    const { data } = await supabase
-      .from('posts')
-      .select('hashtags, likes_count, comments_count')
-      .gte('created_at', since.toISOString())
-      .eq('is_deleted', false)
-      .not('hashtags', 'is', null)
-      .order('created_at', { ascending: false })
-      .limit(100) // Optimization: and only process recent posts to avoid lag
-
-    const hashtagCounts = new Map<string, number>()
-    
-    data?.forEach(post => {
-      const tags = post.hashtags as string[]
-      if (Array.isArray(tags)) {
-        // Use a Set to avoid counting same tag multiple times if it was somehow duplicated in a single post
-        const uniqueTagsInPost = new Set(tags.map(t => typeof t === 'string' ? t.toLowerCase().replace(/[^a-z0-9_]/g, '') : '').filter(t => t))
-        uniqueTagsInPost.forEach(tag => {
-          hashtagCounts.set(tag, (hashtagCounts.get(tag) || 0) + 1)
-        })
-      }
-    })
-
-    const sortedHashtags = Array.from(hashtagCounts.entries())
-      .map(([tag, count]) => ({ tag, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5)
-
-    setHashtags(sortedHashtags)
-    setLoading(false)
-  }
+    fetchTrending()
+  }, [fetchTrending])
 
   function formatPostCount(count: number): string {
     if (count >= 1000000) return (count / 1000000).toFixed(1) + 'M'
@@ -90,26 +49,21 @@ export default function RightSidebar({ hideSearch = false }: RightSidebarProps) 
       )}
 
       {/* Trending Section */}
-      <div className="mt-4 bg-[#f7f9f9] rounded-2xl overflow-hidden border border-gray-50">
+      <div className="mt-4 bg-[#f7f9f9] rounded-2xl overflow-hidden border border-gray-50 shadow-sm animate-in fade-in duration-500">
         <h2 className="px-4 py-3 text-xl font-extrabold text-gray-900">Trends for you</h2>
         
-        {loading ? (
-          <div className="px-4 py-6 space-y-4">
+        {trendingTags.length === 0 ? (
+          <div className="px-4 py-8 space-y-4">
             {[1, 2, 3].map(i => (
               <div key={i} className="animate-pulse space-y-2">
                 <div className="h-3 bg-gray-200 rounded w-1/4"></div>
                 <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                <div className="h-3 bg-gray-200 rounded w-1/2"></div>
               </div>
             ))}
           </div>
-        ) : hashtags.length === 0 ? (
-          <div className="px-4 py-6 text-center text-gray-500 text-sm">
-            No trending tags yet
-          </div>
         ) : (
           <div className="divide-y divide-gray-100">
-            {hashtags.map((item) => (
+            {trendingTags.map((item) => (
               <Link
                 key={item.tag}
                 href={`/search?tag=${item.tag}`}
@@ -117,17 +71,17 @@ export default function RightSidebar({ hideSearch = false }: RightSidebarProps) 
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs text-gray-500">Trending in KeyYap</p>
+                    <p className="text-xs text-gray-500 font-medium uppercase tracking-tight">Trending in KeyYap</p>
                     <h3 className="font-bold text-gray-900 group-hover:underline">#{item.tag}</h3>
-                    <p className="text-xs text-gray-500 mt-0.5">{formatPostCount(item.count)} posts</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{formatPostCount(item.count)} posts</p>
                   </div>
-                  <TrendingUp className="w-4 h-4 text-gray-400" />
+                  <TrendingUp className="w-4 h-4 text-gray-300" />
                 </div>
               </Link>
             ))}
             <Link
               href="/trending"
-              className="block px-4 py-4 text-primary hover:bg-[rgba(0,0,0,0.03)] transition-colors text-sm font-medium"
+              className="block px-4 py-4 text-primary hover:bg-[rgba(0,0,0,0.03)] transition-colors text-sm font-bold"
             >
               Show more
             </Link>
@@ -136,16 +90,18 @@ export default function RightSidebar({ hideSearch = false }: RightSidebarProps) 
       </div>
 
       {/* Dummy Ad Section (Dynamic) */}
-      <RandomSidebarAd />
+      <div className="mt-4">
+        <RandomSidebarAd />
+      </div>
 
       {/* Footer Info */}
-      <div className="mt-4 px-4 pb-8 text-xs text-gray-500 space-y-1">
+      <div className="mt-6 px-4 pb-8 text-[11px] text-gray-400 font-medium space-y-1 leading-normal tracking-wide">
         <div className="flex flex-wrap gap-x-3 gap-y-1">
           <Link href="/terms" className="hover:underline">Terms of Service</Link>
           <Link href="/privacy" className="hover:underline">Privacy Policy</Link>
           <Link href="/cookies" className="hover:underline">Cookie Policy</Link>
         </div>
-        <p>© {new Date().getFullYear()} KeyYap.com</p>
+        <p>© {new Date().getFullYear()} KeyYap.com — Made with ❤️</p>
       </div>
     </aside>
   )

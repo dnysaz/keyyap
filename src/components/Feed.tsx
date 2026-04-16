@@ -28,77 +28,92 @@ export default function Feed({ isGlobal = false }: FeedProps) {
   const [newPostsCount, setNewPostsCount] = useState(0)
   const [initialLoaded, setInitialLoaded] = useState(false)
 
+  const uniquePosts = posts.filter((post, index, self) => index === self.findIndex(p => p.id === post.id))
+  const displayPosts = user ? uniquePosts : uniquePosts.slice(0, 5)
+
   const fetchPosts = useCallback(async (pageNum: number = 0, append: boolean = false) => {
-    if (!append && posts.length === 0) setLoading(true)
+    if (!append && displayPosts.length === 0) setLoading(true)
     
     const limit = 15
     const offset = pageNum * limit
     const currentUserId = useAuthStore.getState().user?.id || null
 
+    // Safety timeout for this specific fetch
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Fetch timeout')), 10000)
+    )
+
     try {
-      let query = supabase
-        .from('posts')
-        .select(`
-          *,
-          profiles:user_id (id, username, full_name, avatar_url)
-        `)
-        .eq('is_deleted', false)
-        .order('created_at', { ascending: false })
-        .range(offset, offset + limit - 1)
-
-      if (currentUserId && !isGlobal) {
-        const { data: following } = await supabase
-          .from('follows')
-          .select('following_id')
-          .eq('follower_id', currentUserId)
-        
-        const followingIds = following?.map(f => f.following_id) || []
-        const allowedIds = [...followingIds, currentUserId]
-        if (allowedIds.length > 0) {
-          query = query.in('user_id', allowedIds)
-        }
-      }
-
-      const { data: postsResult, error: postsError } = await query
-      if (postsError) throw postsError
-
-      // Fetch quotes
-      const quotedPostIds = (postsResult || []).map(p => (p as any).quoted_post_id).filter(id => id != null)
-      let quotedPostsMap: Record<string, any> = {}
-      if (quotedPostIds.length > 0) {
-        const { data: qpData } = await supabase
+      let queryPromise = (async () => {
+        let query = supabase
           .from('posts')
-          .select('*, profiles:user_id (id, username, full_name, avatar_url)')
-          .in('id', quotedPostIds)
-        qpData?.forEach((qp: any) => { quotedPostsMap[qp.id] = qp })
-      }
+          .select(`
+            *,
+            profiles:user_id (id, username, full_name, avatar_url)
+          `)
+          .eq('is_deleted', false)
+          .order('created_at', { ascending: false })
+          .range(offset, offset + limit - 1)
 
-      // Check likes
-      const postIds = (postsResult || []).map(p => p.id)
-      let userLikes: string[] = []
-      if (currentUserId && postIds.length > 0) {
-        const { data: likesData } = await supabase.from('post_likes').select('post_id').eq('user_id', currentUserId).in('post_id', postIds)
-        userLikes = likesData?.map(l => l.post_id) || []
-      }
+        if (currentUserId && !isGlobal) {
+          const { data: following } = await supabase
+            .from('follows')
+            .select('following_id')
+            .eq('follower_id', currentUserId)
+          
+          const followingIds = following?.map(f => f.following_id) || []
+          const allowedIds = [...followingIds, currentUserId]
+          if (allowedIds.length > 0) {
+            query = query.in('user_id', allowedIds)
+          }
+        }
 
-      const finalPosts = (postsResult || []).map((post: any) => ({
-        ...post,
-        quoted_post: post.quoted_post_id ? quotedPostsMap[post.quoted_post_id] || null : null,
-        is_liked: userLikes.includes(post.id),
-      })) as unknown as Post[]
+        const { data: postsResult, error: postsError } = await query
+        if (postsError) throw postsError
+
+        // Fetch quotes
+        const quotedPostIds = (postsResult || []).map(p => (p as any).quoted_post_id).filter(id => id != null)
+        let quotedPostsMap: Record<string, any> = {}
+        if (quotedPostIds.length > 0) {
+          const { data: qpData } = await supabase
+            .from('posts')
+            .select('*, profiles:user_id (id, username, full_name, avatar_url)')
+            .in('id', quotedPostIds)
+          qpData?.forEach((qp: any) => { quotedPostsMap[qp.id] = qp })
+        }
+
+        // Check likes
+        const postIds = (postsResult || []).map(p => p.id)
+        let userLikes: string[] = []
+        if (currentUserId && postIds.length > 0) {
+          const { data: likesData } = await supabase.from('post_likes').select('post_id').eq('user_id', currentUserId).in('post_id', postIds)
+          userLikes = likesData?.map(l => l.post_id) || []
+        }
+
+        const finalPosts = (postsResult || []).map((post: any) => ({
+          ...post,
+          quoted_post: post.quoted_post_id ? quotedPostsMap[post.quoted_post_id] || null : null,
+          is_liked: userLikes.includes(post.id),
+        })) as unknown as Post[]
+        
+        return finalPosts
+      })()
+
+      // Race the query against the timeout
+      const finalPosts = await Promise.race([queryPromise, timeoutPromise]) as Post[]
 
       if (append) {
         setPosts([...posts, ...finalPosts])
       } else {
         setPosts(finalPosts)
       }
-      setHasMore((postsResult?.length || 0) === limit)
+      setHasMore((finalPosts?.length || 0) === limit)
     } catch (err) {
       console.error('Feed error:', err)
     } finally {
       setLoading(false)
     }
-  }, [posts, setPosts, isGlobal])
+  }, [posts, setPosts, isGlobal, user])
 
   // Initial fetch: wait for auth to settle, then fetch once
   useEffect(() => {
@@ -135,15 +150,11 @@ export default function Feed({ isGlobal = false }: FeedProps) {
     }
   }
 
-  // Lock feed to 5 items if not logged in
-  const uniquePosts = posts.filter((post, index, self) => index === self.findIndex(p => p.id === post.id))
-  const displayPosts = user ? uniquePosts : uniquePosts.slice(0, 5)
-
   useEffect(() => {
     const handleScroll = () => {
       // Disable infinite scroll if user is not logged in OR if there are no more posts
       if (!user || user === null) return
-      
+
       if (window.innerHeight + document.documentElement.scrollTop >= document.documentElement.offsetHeight - 800 && hasMore && !loading) {
         loadMore()
       }

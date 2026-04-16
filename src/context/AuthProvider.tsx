@@ -9,10 +9,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const initialized = useRef(false)
 
   useEffect(() => {
-    if (initialized.current) return
-    initialized.current = true
-
     // Listen for all auth changes (initial mount, login, logout, token refresh, etc.)
+    // Supabase will fire INITIAL_SESSION immediately upon subscribing.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log(`🔑 Auth event: ${event}`)
 
@@ -29,34 +27,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(userObj)
 
           try {
-            let { data: profile } = await supabase
+            const { data: profile } = await supabase
               .from('profiles')
               .select('*')
               .eq('id', session.user.id)
               .single()
 
-            if (!profile && event === 'SIGNED_IN') {
-              // Create profile only on actual sign in if missing
-              const username = session.user.user_metadata?.username || 
-                session.user.email?.split('@')[0] || 
-                `user_${session.user.id.slice(0, 8)}`
-              const fullName = session.user.user_metadata?.full_name || 
-                session.user.email?.split('@')[0] || 'User'
-
-              const { data: newProfile, error } = await supabase
-                .from('profiles')
-                .insert({
-                  id: session.user.id,
-                  username: username.toLowerCase().replace(/\s/g, '_'),
-                  full_name: fullName,
-                })
-                .select()
-                .single()
-
-              if (!error && newProfile) profile = newProfile
+            if (profile) {
+              setProfile(profile)
             }
-
-            if (profile) setProfile(profile)
           } catch (err) {
             console.error('Error fetching profile during auth change:', err)
           }
@@ -70,8 +49,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       useAuthStore.setState({ loading: false })
     })
 
+    // Safety fallback: if no event fires in 5 seconds, stop loading
+    const timer = setTimeout(() => {
+      if (useAuthStore.getState().loading) {
+        console.warn('⚠️ Auth init timeout - forcing loading state to false')
+        useAuthStore.setState({ loading: false })
+      }
+    }, 5000)
+
     return () => {
       subscription.unsubscribe()
+      clearTimeout(timer)
     }
   }, [setUser, setProfile])
 

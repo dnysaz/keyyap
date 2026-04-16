@@ -37,6 +37,12 @@ interface LinkMetadata {
   domain?: string
 }
 
+function extractSpotifyId(url: string) {
+  const match = url.match(/https?:\/\/open\.spotify\.com\/(track|album|playlist)\/([a-zA-Z0-9]+)/)
+  if (!match) return null
+  return { type: match[1], id: match[2] }
+}
+
 function formatContent(content: string, linkMetas: LinkMetadata[], expandedVideo: string | null, onVideoClick: (url: string) => void) {
   const lines = content.split('\n')
 
@@ -63,6 +69,24 @@ function formatContent(content: string, linkMetas: LinkMetadata[], expandedVideo
                 allowFullScreen
                 allow="autoplay; encrypted-media"
               />
+            )
+          }
+
+          const spotify = extractSpotifyId(part)
+          if (spotify) {
+            return (
+              <div key={partIdx} className="rounded-xl overflow-hidden border border-gray-100 bg-white mt-2">
+                <iframe
+                  src={`https://open.spotify.com/embed/${spotify.type}/${spotify.id}?utm_source=generator&theme=0`}
+                  width="100%"
+                  height={spotify.type === 'track' ? "80" : "152"}
+                  frameBorder="0"
+                  allowFullScreen
+                  allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                  loading="lazy"
+                  className="block"
+                />
+              </div>
             )
           }
 
@@ -637,6 +661,25 @@ export default function PostDetailPage() {
                         className="w-full h-full"
                         allowFullScreen
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      />
+                    </div>
+                  )
+                })}
+
+                {(comment.content.match(/(https?:\/\/[^\s]+)/g) || []).map((url, idx) => {
+                  const spotify = extractSpotifyId(url)
+                  if (!spotify) return null
+                  return (
+                    <div key={`spotify-${idx}`} className="rounded-xl overflow-hidden border border-gray-100 bg-white mt-2">
+                      <iframe
+                        src={`https://open.spotify.com/embed/${spotify.type}/${spotify.id}?utm_source=generator&theme=0`}
+                        width="100%"
+                        height={spotify.type === 'track' ? "80" : "152"}
+                        frameBorder="0"
+                        allowFullScreen
+                        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                        loading="lazy"
+                        className="block"
                       />
                     </div>
                   )

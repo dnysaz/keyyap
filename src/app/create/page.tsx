@@ -66,6 +66,13 @@ export default function CreatePage() {
 
     if (match) {
       const url = match[0]
+      const spotify = extractSpotifyId(url)
+      
+      if (spotify) {
+        setPreviewData({ spotify, url })
+        return
+      }
+
       if (previewData?.url === url) return
 
       const timer = setTimeout(async () => {
@@ -122,6 +129,12 @@ export default function CreatePage() {
       .map(entry => entry[0])
 
     setTrendingTags(sortedHashtags)
+  }
+
+  const extractSpotifyId = (url: string) => {
+    const match = url.match(/https?:\/\/open\.spotify\.com\/(track|album|playlist)\/([a-zA-Z0-9]+)/)
+    if (!match) return null
+    return { type: match[1], id: match[2] }
   }
 
   const handleAppendTag = (tag: string) => {
@@ -323,14 +336,27 @@ export default function CreatePage() {
                       />
                     </div>
 
-                    {/* Link Preview (Styled like PostCard/Home) */}
+                    {/* Link/Spotify Preview */}
                     {(previewLoading || previewData) && (
-                      <div className="mt-4 border border-gray-100 rounded-2xl overflow-hidden bg-white shadow-sm flex flex-col transition-all">
+                      <div className="mt-4 border border-gray-100 rounded-2xl overflow-hidden bg-white shadow-sm transition-all">
                         {previewLoading ? (
                           <div className="w-full py-8 text-center text-xs text-gray-400 font-medium tracking-widest animate-pulse uppercase">
-                            Fetching link preview...
+                            Fetching preview...
                           </div>
-                        ) : (
+                        ) : previewData?.spotify ? (
+                          <div className="w-full">
+                            <iframe
+                              src={`https://open.spotify.com/embed/${previewData.spotify.type}/${previewData.spotify.id}?utm_source=generator&theme=0`}
+                              width="100%"
+                              height={previewData.spotify.type === 'track' ? "80" : "152"}
+                              frameBorder="0"
+                              allowFullScreen
+                              allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                              loading="lazy"
+                              className="block"
+                            />
+                          </div>
+                        ) : previewData && (
                           <a
                             href={previewData.url}
                             target="_blank"

@@ -29,6 +29,12 @@ function extractYoutubeId(url: string): string | null {
   return match ? match[1] : null
 }
 
+function extractSpotifyId(url: string) {
+  const match = url.match(/https?:\/\/open\.spotify\.com\/(track|album|playlist)\/([a-zA-Z0-9]+)/)
+  if (!match) return null
+  return { type: match[1], id: match[2] }
+}
+
 function extractDomain(url: string): string {
   try {
     const domain = new URL(url).hostname
@@ -320,6 +326,26 @@ export default function PostCard({ post, currentUserId, onLikeChange, reposterUs
                   </a>
                 )
               })}
+              
+              {/* Spotify Previews */}
+              {urls.map((url, idx) => {
+                const spotify = extractSpotifyId(url)
+                if (!spotify) return null
+                return (
+                  <div key={`spotify-${idx}`} className="rounded-xl overflow-hidden border border-gray-100 bg-white">
+                    <iframe
+                      src={`https://open.spotify.com/embed/${spotify.type}/${spotify.id}?utm_source=generator&theme=0`}
+                      width="100%"
+                      height={spotify.type === 'track' ? "80" : "152"}
+                      frameBorder="0"
+                      allowFullScreen
+                      allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                      loading="lazy"
+                      className="block"
+                    />
+                  </div>
+                )
+              })}
             </div>
           )}
 
@@ -385,16 +411,27 @@ export default function PostCard({ post, currentUserId, onLikeChange, reposterUs
                         )
                       }
                       return (
-                        <div key={idx} className="rounded-xl border border-gray-100 overflow-hidden bg-white flex items-stretch h-16">
-                          {link.image && (
-                            <div className="w-20 shrink-0">
-                              <img src={link.image} className="w-full h-full object-cover" alt="" />
-                            </div>
-                          )}
-                          <div className="p-2 px-3 flex-1 min-w-0 flex flex-col justify-center">
-                            <h4 className="font-bold text-gray-900 text-[13px] truncate">{link.title || link.url}</h4>
-                            <p className="text-[10px] text-gray-500 line-clamp-1 uppercase font-bold tracking-wider">{extractDomain(link.url)}</p>
                           </div>
+                        </div>
+                      )
+                    })}
+
+                    {/* Quoted Spotify Previews */}
+                    {qpUrls.map((url, idx) => {
+                      const spotify = extractSpotifyId(url)
+                      if (!spotify) return null
+                      return (
+                        <div key={`qp-spotify-${idx}`} className="rounded-xl overflow-hidden border border-gray-100 bg-white">
+                          <iframe
+                            src={`https://open.spotify.com/embed/${spotify.type}/${spotify.id}?utm_source=generator&theme=0`}
+                            width="100%"
+                            height={spotify.type === 'track' ? "80" : "152"}
+                            frameBorder="0"
+                            allowFullScreen
+                            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                            loading="lazy"
+                            className="block"
+                          />
                         </div>
                       )
                     })}

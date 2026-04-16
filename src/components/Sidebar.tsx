@@ -25,8 +25,8 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="hidden lg:flex flex-col w-[72px] xl:w-[260px] h-screen fixed top-0 left-0 xl:left-[calc(50%-670px)] py-4 px-2 z-30 bg-white items-end">
-      <div className="mb-4 px-3 pt-2 flex justify-end w-full">
+    <aside className="hidden lg:flex flex-col w-[72px] xl:w-[260px] h-screen fixed top-0 left-0 xl:left-[calc(50%-670px)] py-4 px-2 z-30 bg-white items-center xl:items-end">
+      <div className="mb-4 px-2 xl:px-3 pt-2 flex justify-center xl:justify-end w-full">
         <Link href="/" className="no-underline group flex items-baseline">
           <span className="text-2xl xl:text-3xl font-black text-gray-900 hover:opacity-80 transition-opacity tracking-tighter">
             <span className="xl:hidden">K</span>
@@ -36,8 +36,8 @@ export default function Sidebar() {
         </Link>
       </div>
 
-      {/* Nav - Right Aligned Items with slightly smaller font */}
-      <nav className="flex flex-col items-end w-full space-y-0.5">
+      {/* Nav - Centered on mobile, Right Aligned on large */}
+      <nav className="flex flex-col items-center xl:items-end w-full space-y-0.5">
         {navItems.map((item) => {
           const Icon = item.icon
           const isActive = pathname === item.href
@@ -64,8 +64,8 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* Post Button - Right Aligned */}
-      <div className="mt-4 px-2 w-full flex justify-end">
+      {/* Post Button - Centered/Right Aligned */}
+      <div className="mt-4 px-2 w-full flex justify-center xl:justify-end">
         <Link
           href="/create"
           className="flex items-center justify-center h-[40px] w-10 xl:w-[110px] bg-primary text-white rounded-full font-bold text-sm hover:bg-primary/90 transition-all shadow-sm active:scale-95 no-underline"
@@ -75,15 +75,15 @@ export default function Sidebar() {
         </Link>
       </div>
 
-      {/* User Account Section - Right Aligned at Bottom */}
-      <div className="mt-auto mb-4 px-2 w-full flex flex-col items-end gap-2">
+      {/* User Account Section - Bottom */}
+      <div className="mt-auto mb-4 px-2 w-full flex flex-col items-center xl:items-end gap-2">
         {user && profile ? (
           <>
             <Link
               href={`/u/${profile.username}`}
               className="flex items-center gap-2 p-2 rounded-full hover:bg-gray-100 transition-colors group max-w-full no-underline"
             >
-              <div className="hidden xl:flex flex-col items-end min-w-0">
+              <div className="hidden xl:flex flex-col items-end min-w-0 pr-1">
                 <span className="font-bold text-[12px] truncate leading-tight text-gray-900">{profile.full_name || profile.username}</span>
                 <span className="text-[11px] text-gray-400 truncate leading-tight">@{profile.username}</span>
               </div>
@@ -102,7 +102,7 @@ export default function Sidebar() {
         ) : (
           <Link
             href="/login"
-            className="flex items-center gap-2 p-2 rounded-full text-gray-900 border border-gray-100 hover:bg-gray-50 transition-colors no-underline"
+            className="flex items-center gap-2 p-1.5 xl:p-2 rounded-full text-gray-900 border border-gray-100 hover:bg-gray-50 transition-colors no-underline"
           >
             <span className="hidden xl:inline font-bold text-xs px-2">Log in</span>
             <div className="w-8 h-8 flex items-center justify-center bg-gray-50 rounded-full">

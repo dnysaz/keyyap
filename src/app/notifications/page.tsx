@@ -20,18 +20,15 @@ export default function NotificationsPage() {
     loading, 
     fetchNotifications, 
     markAllAsRead,
-    deleteNotification,
-    hasFetched 
+    deleteNotification
   } = useNotificationStore()
 
   useEffect(() => {
     if (user?.id) {
-      if (!hasFetched) {
-        fetchNotifications(user.id)
-      }
+      fetchNotifications(user.id)
       markAllAsRead(user.id)
     }
-  }, [user?.id, fetchNotifications, markAllAsRead, hasFetched])
+  }, [user?.id])
 
   function formatDate(date: string) {
     const d = new Date(date)

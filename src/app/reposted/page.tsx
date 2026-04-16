@@ -15,15 +15,17 @@ import { useAuthStore } from '@/stores/authStore'
 import AuthGuard from '@/components/AuthGuard'
 
 export default function RepostedPage() {
-  const { user } = useAuthStore()
+  const { user, loading: authLoading } = useAuthStore()
   const [posts, setPosts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(0)
   const [hasMore, setHasMore] = useState(true)
 
   useEffect(() => {
-    fetchRepostedPosts(0)
-  }, [])
+    if (!authLoading) {
+      fetchRepostedPosts(0)
+    }
+  }, [authLoading])
 
   async function fetchRepostedPosts(pageNum: number = 0, append: boolean = false) {
     if (!append) setLoading(true)

@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import PostCard from './PostCard'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/authStore'
-import { usePostStore } from '@/stores/postStore' // Use the new store
+import { usePostStore } from '@/stores/postStore'
 import { FeedSkeleton } from './Skeleton'
 import { RandomFeedAd } from '@/ads/AdManager'
 import type { Post } from '@/types'
@@ -19,21 +19,15 @@ export default function Feed({ isGlobal = false }: FeedProps) {
   const activeTab = searchParams.get('tab') || 'foryou'
   const { user, loading: authLoading } = useAuthStore()
   
-  // Connect to Global Store
-  const { posts, setPosts, loading: globalLoading, hasFetched } = usePostStore()
+  const { posts, setPosts } = usePostStore()
 
   const [loading, setLoading] = useState(false)
   const [hasMore, setHasMore] = useState(true)
   const [page, setPage] = useState(0)
   const [newPostsCount, setNewPostsCount] = useState(0)
-  const postsRef = useRef<Post[]>([])
-
-  useEffect(() => {
-    postsRef.current = posts
-  }, [posts])
+  const [initialLoaded, setInitialLoaded] = useState(false)
 
   const fetchPosts = useCallback(async (pageNum: number = 0, append: boolean = false) => {
-    // If we already have posts, and it's not an append, don't show full loading
     if (!append && posts.length === 0) setLoading(true)
     
     const limit = 15
@@ -102,35 +96,30 @@ export default function Feed({ isGlobal = false }: FeedProps) {
       console.error('Feed error:', err)
     } finally {
       setLoading(false)
-      usePostStore.setState({ loading: false, hasFetched: true })
     }
   }, [posts, setPosts, isGlobal])
 
-  // INITIAL FETCH: Speed it up!
+  // Initial fetch: wait for auth to settle, then fetch once
   useEffect(() => {
-    if (!authLoading) {
-      // If we've never fetched or switching tabs, fetch.
-      // But if we already have global posts, they are ALREADY rendered (instan!)
-      if (!hasFetched) {
-        fetchPosts(0)
-      }
+    if (!authLoading && !initialLoaded) {
+      setInitialLoaded(true)
+      fetchPosts(0)
     }
-  }, [authLoading, hasFetched])
+  }, [authLoading, initialLoaded])
 
-  // Tab switching always refreshes but background only
+  // Tab switching refreshes data
   useEffect(() => {
-    if (hasFetched) {
-        setPage(0)
-        fetchPosts(0)
+    if (initialLoaded) {
+      setPage(0)
+      fetchPosts(0)
     }
   }, [activeTab])
 
-  // Realtime subscription logic remains but updates global store
+  // Realtime: listen for new posts
   useEffect(() => {
     const channel = supabase
       .channel('public:posts_feed')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, async (payload) => {
-        // Logic to add new post to global store
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, () => {
         setNewPostsCount(prev => prev + 1)
       })
       .subscribe()
@@ -157,6 +146,9 @@ export default function Feed({ isGlobal = false }: FeedProps) {
 
   const uniquePosts = posts.filter((post, index, self) => index === self.findIndex(p => p.id === post.id))
 
+  // Show skeleton while auth is loading OR while doing initial data fetch
+  const showSkeleton = authLoading || (loading && uniquePosts.length === 0)
+
   return (
     <div className="animate-in fade-in duration-500">
       {newPostsCount > 0 && (
@@ -168,7 +160,7 @@ export default function Feed({ isGlobal = false }: FeedProps) {
         </button>
       )}
 
-      {uniquePosts.length === 0 && loading ? (
+      {showSkeleton ? (
         <FeedSkeleton count={5} />
       ) : uniquePosts.length === 0 ? (
         <div className="py-20 text-center">

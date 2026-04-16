@@ -185,7 +185,6 @@ export default function ProfilePage() {
     } catch (error) {
       console.error('Error fetching profile:', error)
     } finally {
-      setLoading(true) 
       setLoading(false)
     }
   }
@@ -222,9 +221,6 @@ export default function ProfilePage() {
       setFollowersCount(prev => prev - 1)
     } else {
       await supabase.from('follows').insert({ follower_id: user.id, following_id: profile.id })
-      setIsFollowing(true)
-      setFollowersCount(prev => prev + 1)
-      
       setIsFollowing(true)
       setFollowersCount(prev => prev + 1)
     }

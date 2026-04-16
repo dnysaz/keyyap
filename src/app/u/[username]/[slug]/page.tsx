@@ -506,27 +506,74 @@ export default function PostDetailPage() {
     } finally { setIsLoadingRepost(false) }
   }
 
-  const [followingUsernames, setFollowingUsernames] = useState<string[]>([])
+  const [followedUsers, setFollowedUsers] = useState<any[]>([])
+  const [mentionSearch, setMentionSearch] = useState('')
+  const [showMentionSuggestions, setShowMentionSuggestions] = useState(false)
+  const [highlightedIndex, setHighlightedIndex] = useState(0)
 
   useEffect(() => {
     async function fetchFollowing() {
       if (!user) return
       const { data } = await supabase
         .from('follows')
-        .select('following:following_id(username)')
+        .select(`
+          following:following_id (
+            id,
+            username,
+            full_name,
+            avatar_url
+          )
+        `)
         .eq('follower_id', user.id)
       
       if (data) {
-        setFollowingUsernames(data.map((f: any) => f.following.username))
+        setFollowedUsers(data.map((f: any) => f.following))
       }
     }
     fetchFollowing()
   }, [user])
 
+  const filteredMentions = followedUsers.filter(u => 
+    u.username.toLowerCase().includes(mentionSearch.toLowerCase()) || 
+    (u.full_name && u.full_name.toLowerCase().includes(mentionSearch.toLowerCase()))
+  )
+
+  function insertMention(selectedUser: any) {
+    const parts = newComment.split(' ')
+    const lastPart = parts[parts.length - 1]
+    if (lastPart.startsWith('@')) {
+      parts[parts.length - 1] = `@${selectedUser.username} `
+      setNewComment(parts.join(' '))
+    }
+    setShowMentionSuggestions(false)
+    commentInputRef.current?.focus()
+  }
+
+  function handleInputChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    const val = e.target.value
+    setNewComment(val)
+    
+    // Auto resize
+    e.target.style.height = 'auto'
+    e.target.style.height = `${Math.min(150, Math.max(36, e.target.scrollHeight))}px`
+
+    // Detect @ mention
+    const words = val.split(/[\s\n]/)
+    const lastWord = words[words.length - 1]
+    
+    if (lastWord.startsWith('@') && lastWord.length > 0) {
+      setMentionSearch(lastWord.substring(1))
+      setShowMentionSuggestions(true)
+      setHighlightedIndex(0)
+    } else {
+      setShowMentionSuggestions(false)
+    }
+  }
+
   function formatCommentLinkText(content: string) {
     // 1. Handle Mentions - Only link if followed
     let formatted = content.replace(/@(\w+)/g, (match, username) => {
-      const isFollowing = followingUsernames.includes(username)
+      const isFollowing = followedUsers.some(u => u.username === username)
       if (isFollowing) {
         return `<a href="/u/${username}" class="text-primary font-bold hover:underline">@${username}</a>`
       }
@@ -539,6 +586,25 @@ export default function PostDetailPage() {
       return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:underline break-all inline font-medium">${truncated}</a>`
     })
     return formatted
+  }
+
+  function handleCommentKeyDown(e: React.KeyboardEvent) {
+    if (showMentionSuggestions && filteredMentions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setHighlightedIndex(prev => (prev + 1) % filteredMentions.length)
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setHighlightedIndex(prev => (prev - 1 + filteredMentions.length) % filteredMentions.length)
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault()
+        insertMention(filteredMentions[highlightedIndex])
+      } else if (e.key === 'Escape') {
+        setShowMentionSuggestions(false)
+      }
+    } else {
+      handleKeyDown(e)
+    }
   }
 
   function renderComment(comment: Comment, depth: number = 0) {
@@ -794,7 +860,36 @@ export default function PostDetailPage() {
                   <div className="flex w-full max-w-[1050px] items-start pointer-events-none">
 
                     {/* Input Container - Perfectly Matches Main Column */}
-                    <div className="flex-1 max-w-2xl bg-white/95 backdrop-blur-md border-t border-x border-gray-100 mb-[64px] lg:mb-0 shadow-[0_-8px_30px_rgba(0,0,0,0.04)] pointer-events-auto">
+                    <div className="flex-1 max-w-2xl bg-white/95 backdrop-blur-md border-t border-x border-gray-100 mb-[64px] lg:mb-0 shadow-[0_-8px_30px_rgba(0,0,0,0.04)] pointer-events-auto relative">
+                      
+                      {/* Mention Suggestions UI */}
+                      {showMentionSuggestions && filteredMentions.length > 0 && (
+                        <div className="absolute bottom-full left-0 right-0 w-full px-2 pb-2 pointer-events-auto z-50">
+                          <div className="bg-white rounded-2xl border border-gray-100 shadow-2xl overflow-hidden animate-in slide-in-from-bottom-2 duration-200">
+                            <div className="p-3 border-b border-gray-50 flex items-center justify-between bg-gray-50/50">
+                              <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Suggestions</span>
+                              <span className="text-[10px] text-gray-400">Use arrow keys</span>
+                            </div>
+                            <div className="max-h-[250px] overflow-y-auto">
+                              {filteredMentions.map((suggestion, idx) => (
+                                <button
+                                  key={suggestion.id}
+                                  onClick={() => insertMention(suggestion)}
+                                  onMouseEnter={() => setHighlightedIndex(idx)}
+                                  className={`w-full flex items-center gap-3 p-3 transition-colors ${idx === highlightedIndex ? 'bg-primary/5 border-l-4 border-primary' : 'hover:bg-gray-50 border-l-4 border-transparent'}`}
+                                >
+                                  <Avatar url={suggestion.avatar_url} username={suggestion.username} size="sm" />
+                                  <div className="text-left flex-1 min-w-0">
+                                    <div className="font-black text-[14px] text-gray-900 truncate">{suggestion.full_name || suggestion.username}</div>
+                                    <div className="text-[12px] text-gray-500 truncate">@{suggestion.username}</div>
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="p-3 flex items-end gap-3 w-full">
                         <div className="shrink-0 mb-1">
                           <Avatar url={currentProfile?.avatar_url || undefined} username={currentProfile?.username || 'me'} size="sm" />
@@ -810,12 +905,8 @@ export default function PostDetailPage() {
                             <textarea
                               ref={commentInputRef}
                               value={newComment}
-                              onChange={(e) => {
-                                setNewComment(e.target.value)
-                                e.target.style.height = 'auto'
-                                e.target.style.height = `${Math.min(150, Math.max(36, e.target.scrollHeight))}px`
-                              }}
-                              onKeyDown={handleKeyDown}
+                              onChange={handleInputChange}
+                              onKeyDown={handleCommentKeyDown}
                               placeholder="Post your reply"
                               className="flex-1 border-0 focus:ring-0 outline-none ring-0 resize-none text-[15px] bg-transparent placeholder:text-gray-400 py-2 px-3 min-h-[36px] max-h-[150px] overflow-y-auto custom-scrollbar"
                               rows={1}

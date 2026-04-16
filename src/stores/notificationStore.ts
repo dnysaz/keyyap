@@ -26,6 +26,7 @@ interface NotificationState {
   hasFetched: boolean
   setUnreadCount: (count: number) => void
   fetchNotifications: (userId: string) => Promise<void>
+  fetchUnreadCount: (userId: string) => Promise<void>
   incrementUnreadCount: () => void
   resetUnreadCount: () => void
   addNotification: (notif: Notification) => void
@@ -39,6 +40,18 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   hasFetched: false,
   setUnreadCount: (count) => set({ unreadCount: count }),
   
+  fetchUnreadCount: async (userId) => {
+    const { count, error } = await supabase
+      .from('notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('is_read', false)
+    
+    if (!error) {
+      set({ unreadCount: count || 0 })
+    }
+  },
+
   fetchNotifications: async (userId) => {
     // If we already have data, don't show full loading, fetch in background
     if (get().notifications.length === 0) set({ loading: true })

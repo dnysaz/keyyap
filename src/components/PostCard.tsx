@@ -333,7 +333,7 @@ export default function PostCard({ post, currentUserId, onLikeChange, reposterUs
               })}
               
               {/* Spotify Previews */}
-              {urls.map((url, idx) => {
+              {urls.map((url: string, idx: number) => {
                 const spotify = extractSpotifyId(url)
                 if (!spotify) return null
                 return (
@@ -416,13 +416,22 @@ export default function PostCard({ post, currentUserId, onLikeChange, reposterUs
                         )
                       }
                       return (
+                        <div key={idx} className="rounded-xl border border-gray-100 overflow-hidden bg-white flex items-stretch h-16">
+                          {link.image && (
+                            <div className="w-20 shrink-0">
+                              <img src={link.image} className="w-full h-full object-cover" alt="" />
+                            </div>
+                          )}
+                          <div className="p-2 px-3 flex-1 min-w-0 flex flex-col justify-center">
+                            <h4 className="font-bold text-gray-900 text-[13px] truncate">{link.title || link.url}</h4>
+                            <p className="text-[10px] text-gray-500 line-clamp-1 uppercase font-bold tracking-wider">{extractDomain(link.url)}</p>
                           </div>
                         </div>
                       )
                     })}
 
                     {/* Quoted Spotify Previews */}
-                    {qpUrls.map((url, idx) => {
+                    {qpUrls.map((url: string, idx: number) => {
                       const spotify = extractSpotifyId(url)
                       if (!spotify) return null
                       return (

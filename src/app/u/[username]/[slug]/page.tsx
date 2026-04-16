@@ -651,7 +651,7 @@ export default function PostDetailPage() {
 
               {/* Link & Video Previews in Comments */}
               <div className="mt-3 space-y-3">
-                {(comment.content.match(/(https?:\/\/[^\s]+)/g) || []).map((url, idx) => {
+                {(comment.content.match(/(https?:\/\/[^\s]+)/g) || []).map((url: string, idx: number) => {
                   const yid = extractYoutubeId(url)
                   if (!yid) return null
                   return (
@@ -666,7 +666,7 @@ export default function PostDetailPage() {
                   )
                 })}
 
-                {(comment.content.match(/(https?:\/\/[^\s]+)/g) || []).map((url, idx) => {
+                {(comment.content.match(/(https?:\/\/[^\s]+)/g) || []).map((url: string, idx: number) => {
                   const spotify = extractSpotifyId(url)
                   if (!spotify) return null
                   return (

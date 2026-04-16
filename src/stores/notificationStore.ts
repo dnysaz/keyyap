@@ -17,6 +17,9 @@ interface Notification {
     id: string
     content: string
   }
+  comment?: {
+    content: string
+  }
 }
 
 interface NotificationState {
@@ -61,7 +64,8 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       .select(`
         *,
         from_profile:from_user_id (username, full_name, avatar_url),
-        post:post_id (content, id)
+        post:post_id (content, id),
+        comment:comment_id (content)
       `)
       .eq('user_id', userId)
       .order('created_at', { ascending: false })

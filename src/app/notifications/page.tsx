@@ -109,7 +109,17 @@ export default function NotificationsPage() {
                               href={getPostSlug(notif)}
                               className="text-sm text-gray-500 mt-1 line-clamp-2 block hover:text-gray-700 italic border-l-2 border-gray-100 pl-3 py-1"
                             >
-                              {notif.post.content}
+                              {notif.type === 'comment' || notif.type === 'mention_comment' ? (
+                                <span className="text-gray-800 not-italic font-medium">
+                                  "{notif.comment?.content 
+                                    ? (notif.comment.content.length > 100 
+                                      ? notif.comment.content.substring(0, 100) + '...' 
+                                      : notif.comment.content)
+                                    : '...'}"
+                                </span>
+                              ) : (
+                                notif.post.content
+                              )}
                             </Link>
                           )}
                         </div>

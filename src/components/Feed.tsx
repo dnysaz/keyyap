@@ -72,13 +72,12 @@ export default function Feed({ isGlobal = false }: FeedProps) {
         // Filter logic: Show if NOT hidden OR if the current user is a follower
         if (isGlobal) {
           if (currentUserId && allowedIds.length > 0) {
-            // Show posts that are (NOT hidden) OR (are from people the user follows)
+            // Important: Use .neq.true to catch both 'false' and 'NULL'
             const followedIdsList = allowedIds.map(id => id).join(',')
-            // Use .or with combined logic
-            query = query.or(`user_id.in.(${followedIdsList}),profiles.hide_from_global.eq.false,profiles.hide_from_global.is.null`)
+            query = query.or(`user_id.in.(${followedIdsList}),profiles.hide_from_global.neq.true`)
           } else {
-            // Guest or not following anyone: only show non-hidden posts
-            query = query.or('hide_from_global.eq.false,hide_from_global.is.null', { foreignTable: 'profiles' })
+            // Guest: only show non-hidden posts
+            query = query.filter('profiles.hide_from_global', 'neq', true)
           }
         }
 

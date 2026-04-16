@@ -277,6 +277,8 @@ export default function PostCard({ post, currentUserId, onLikeChange, reposterUs
             <div className="mt-3 space-y-3">
               {linkMetas.map((link, idx) => {
                 const youtubeId = extractYoutubeId(link.url)
+                const isSpotify = extractSpotifyId(link.url)
+                
                 if (youtubeId) {
                   return (
                     <div key={idx} className="rounded-2xl overflow-hidden border border-gray-200 bg-black aspect-video relative group/video shadow-sm">
@@ -303,6 +305,9 @@ export default function PostCard({ post, currentUserId, onLikeChange, reposterUs
                     </div>
                   )
                 }
+
+                if (isSpotify) return null // Handled below by a dedicated map for all urls
+                
                 return (
                   <a 
                     key={idx} 

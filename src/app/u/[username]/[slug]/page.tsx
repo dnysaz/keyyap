@@ -685,7 +685,7 @@ export default function PostDetailPage() {
                   )
                 })}
 
-                {commentLinkMetas[comment.id]?.filter(meta => !extractYoutubeId(meta.url)).map((meta, idx) => (
+                {commentLinkMetas[comment.id]?.filter(meta => !extractYoutubeId(meta.url) && !extractSpotifyId(meta.url)).map((meta, idx) => (
                   <a
                     key={idx}
                     href={meta.url}

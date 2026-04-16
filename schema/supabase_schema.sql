@@ -313,7 +313,7 @@ BEGIN
       INSERT INTO public.notifications (user_id, type, from_user_id, post_id, comment_id)
       VALUES (
         mentioned_user_id, 
-        'mention', 
+        CASE WHEN TG_TABLE_NAME = 'posts' THEN 'mention_post' ELSE 'mention_comment' END, 
         NEW.user_id, 
         CASE WHEN TG_TABLE_NAME = 'posts' THEN NEW.id ELSE NEW.post_id END,
         CASE WHEN TG_TABLE_NAME = 'comments' THEN NEW.id ELSE NULL END

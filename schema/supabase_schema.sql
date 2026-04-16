@@ -292,6 +292,44 @@ CREATE TRIGGER tr_notify_repost AFTER INSERT ON public.reposts FOR EACH ROW EXEC
 DROP TRIGGER IF EXISTS tr_notify_comment ON public.comments;
 CREATE TRIGGER tr_notify_comment AFTER INSERT ON public.comments FOR EACH ROW EXECUTE FUNCTION handler_create_notification();
 
+-- FUNC 4: HANDLE MENTIONS (Auto-detect @username)
+CREATE OR REPLACE FUNCTION public.handle_mentions()
+RETURNS TRIGGER AS $$
+DECLARE
+  mention_record RECORD;
+  mentioned_user_id UUID;
+BEGIN
+  -- Regex to find @username (looking for @ followed by word characters)
+  -- Matches are returned as a set of rows
+  FOR mention_record IN 
+    SELECT DISTINCT unnest(regexp_matches(NEW.content, '(?<!\w)@(\w+)', 'g')) as username
+  LOOP
+    -- Find the user_id for this username (case insensitive)
+    SELECT id INTO mentioned_user_id FROM public.profiles 
+    WHERE lower(username) = lower(mention_record.username);
+    
+    -- Insert notification if user exists and is not the sender
+    IF mentioned_user_id IS NOT NULL AND mentioned_user_id != NEW.user_id THEN
+      INSERT INTO public.notifications (user_id, type, from_user_id, post_id, comment_id)
+      VALUES (
+        mentioned_user_id, 
+        'mention', 
+        NEW.user_id, 
+        CASE WHEN TG_TABLE_NAME = 'posts' THEN NEW.id ELSE NEW.post_id END,
+        CASE WHEN TG_TABLE_NAME = 'comments' THEN NEW.id ELSE NULL END
+      ) ON CONFLICT DO NOTHING;
+    END IF;
+  END LOOP;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+DROP TRIGGER IF EXISTS tr_process_post_mentions ON public.posts;
+CREATE TRIGGER tr_process_post_mentions AFTER INSERT ON public.posts FOR EACH ROW EXECUTE FUNCTION handle_mentions();
+
+DROP TRIGGER IF EXISTS tr_process_comment_mentions ON public.comments;
+CREATE TRIGGER tr_process_comment_mentions AFTER INSERT ON public.comments FOR EACH ROW EXECUTE FUNCTION handle_mentions();
+
 -- =========================================================================
 -- REALTIME CONFIGURATION
 -- =========================================================================

@@ -83,6 +83,7 @@ export default function NotificationsPage() {
                           {notif.type === 'repost' && <Repeat className="w-6 h-6 text-green-500" />}
                           {notif.type === 'follow' && <User className="w-6 h-6 text-primary" />}
                           {notif.type === 'visit' && <Eye className="w-6 h-6 text-gray-400" />}
+                          {notif.type === 'mention' && <MessageCircle className="w-6 h-6 text-accent" />}
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center justify-between mb-1">
@@ -100,6 +101,7 @@ export default function NotificationsPage() {
                             {notif.type === 'repost' && 'Reposted your post'}
                             {notif.type === 'follow' && 'Started following you'}
                             {notif.type === 'visit' && 'Visited your profile'}
+                            {notif.type === 'mention' && 'Mentioned you in a post'}
                           </p>
                           {notif.post && (
                             <Link 

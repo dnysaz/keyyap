@@ -254,9 +254,9 @@ export default function RepostModal({ isOpen, onClose, originalPost, onSuccess }
               <div className="relative">
                 {/* Minimalist Mention Suggestions UI */}
                 {showMentionSuggestions && filteredMentions.length > 0 && (
-                  <div className="absolute bottom-full left-0 right-0 w-full mb-2 pointer-events-auto z-50">
-                    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden animate-in fade-in slide-in-from-bottom-1 duration-200">
-                      <div className="max-h-[220px] overflow-y-auto py-1">
+                  <div className="absolute top-full left-0 right-0 w-full mt-1 pointer-events-auto z-50">
+                    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200">
+                      <div className="max-h-[200px] overflow-y-auto py-1">
                         {filteredMentions.map((suggestion, idx) => (
                           <button
                             key={suggestion.id}
@@ -267,7 +267,7 @@ export default function RepostModal({ isOpen, onClose, originalPost, onSuccess }
                           >
                             <Avatar url={suggestion.avatar_url} username={suggestion.username} size="xs" />
                             <div className="text-left flex-1 min-w-0">
-                              <div className="font-bold text-[13px] text-gray-900 truncate tracking-tight">{suggestion.full_name || suggestion.username}</div>
+                              <div className="font-bold text-[13px] text-gray-900 truncate">{suggestion.full_name || suggestion.username}</div>
                               <div className="text-[11px] text-gray-400 truncate mt-0.5">@{suggestion.username}</div>
                             </div>
                           </button>

@@ -561,7 +561,8 @@ export default function PostDetailPage() {
     const words = val.split(/[\s\n]/)
     const lastWord = words[words.length - 1]
     
-    if (lastWord.startsWith('@') && lastWord.length > 0) {
+    // Minimal 2 characters after @ (e.g. @na) means total length >= 3
+    if (lastWord.startsWith('@') && lastWord.length >= 3) {
       setMentionSearch(lastWord.substring(1))
       setShowMentionSuggestions(true)
       setHighlightedIndex(0)
@@ -862,26 +863,22 @@ export default function PostDetailPage() {
                     {/* Input Container - Perfectly Matches Main Column */}
                     <div className="flex-1 max-w-2xl bg-white/95 backdrop-blur-md border-t border-x border-gray-100 mb-[64px] lg:mb-0 shadow-[0_-8px_30px_rgba(0,0,0,0.04)] pointer-events-auto relative">
                       
-                      {/* Mention Suggestions UI */}
+                      {/* Minimalist Mention Suggestions UI */}
                       {showMentionSuggestions && filteredMentions.length > 0 && (
-                        <div className="absolute bottom-full left-0 right-0 w-full px-2 pb-2 pointer-events-auto z-50">
-                          <div className="bg-white rounded-2xl border border-gray-100 shadow-2xl overflow-hidden animate-in slide-in-from-bottom-2 duration-200">
-                            <div className="p-3 border-b border-gray-50 flex items-center justify-between bg-gray-50/50">
-                              <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Suggestions</span>
-                              <span className="text-[10px] text-gray-400">Use arrow keys</span>
-                            </div>
-                            <div className="max-h-[250px] overflow-y-auto">
+                        <div className="absolute bottom-full left-0 right-0 w-full px-2 pb-1 pointer-events-auto z-50">
+                          <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-1 duration-200">
+                            <div className="max-h-[220px] overflow-y-auto py-1">
                               {filteredMentions.map((suggestion, idx) => (
                                 <button
                                   key={suggestion.id}
                                   onClick={() => insertMention(suggestion)}
                                   onMouseEnter={() => setHighlightedIndex(idx)}
-                                  className={`w-full flex items-center gap-3 p-3 transition-colors ${idx === highlightedIndex ? 'bg-primary/5 border-l-4 border-primary' : 'hover:bg-gray-50 border-l-4 border-transparent'}`}
+                                  className={`w-full flex items-center gap-3 p-2.5 px-4 transition-colors ${idx === highlightedIndex ? 'bg-gray-50' : 'hover:bg-gray-50/50'}`}
                                 >
-                                  <Avatar url={suggestion.avatar_url} username={suggestion.username} size="sm" />
+                                  <Avatar url={suggestion.avatar_url} username={suggestion.username} size="xs" />
                                   <div className="text-left flex-1 min-w-0">
-                                    <div className="font-black text-[14px] text-gray-900 truncate">{suggestion.full_name || suggestion.username}</div>
-                                    <div className="text-[12px] text-gray-500 truncate">@{suggestion.username}</div>
+                                    <div className="font-bold text-[13px] text-gray-900 truncate tracking-tight">{suggestion.full_name || suggestion.username}</div>
+                                    <div className="text-[11px] text-gray-400 truncate mt-0.5">@{suggestion.username}</div>
                                   </div>
                                 </button>
                               ))}

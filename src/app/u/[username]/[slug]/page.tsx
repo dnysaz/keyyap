@@ -213,18 +213,23 @@ export default function PostDetailPage() {
       const idPrefix = parts[parts.length - 1]
 
       try {
-        // OPTIMIZED: Query specifically by ID prefix first
         const { data: posts, error: postError } = await supabase
           .from('posts')
           .select('*, profiles!inner(*)')
-          .like('id', `${idPrefix}%`)
           .eq('is_deleted', false)
-          .limit(1)
+          .ilike('profiles.username', username)
+          .order('created_at', { ascending: false })
+          .limit(50)
 
         if (postError) throw postError
         if (!isMounted) return
 
-        const matchedPost = posts?.[0]
+        const matchedPost = posts?.find((p: any) => {
+          const expectedSlug = getSlug(p.id, p.content)
+          if (expectedSlug === slug) return true
+          if (idPrefix && p.id.startsWith(idPrefix)) return true
+          return false
+        })
 
         if (!matchedPost) {
           if (isMounted) setLoading(false)

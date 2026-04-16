@@ -213,23 +213,18 @@ export default function PostDetailPage() {
       const idPrefix = parts[parts.length - 1]
 
       try {
+        // OPTIMIZED: Query specifically by ID prefix first
         const { data: posts, error: postError } = await supabase
           .from('posts')
           .select('*, profiles!inner(*)')
+          .like('id', `${idPrefix}%`)
           .eq('is_deleted', false)
-          .ilike('profiles.username', username)
-          .order('created_at', { ascending: false })
-          .limit(100)
+          .limit(1)
 
         if (postError) throw postError
         if (!isMounted) return
 
-        const matchedPost = posts?.find((p: any) => {
-          const expectedSlug = getSlug(p.id, p.content)
-          if (expectedSlug === slug) return true
-          if (idPrefix && p.id.startsWith(idPrefix)) return true
-          return false
-        })
+        const matchedPost = posts?.[0]
 
         if (!matchedPost) {
           if (isMounted) setLoading(false)
@@ -303,20 +298,23 @@ export default function PostDetailPage() {
     }))
 
     setComments(buildCommentTree(formattedComments))
-    setCommentCount(formattedComments.length)
+    setCommentCount(formattedComments.length);
 
-    const linkMetaMap: Record<string, LinkMetadata[]> = {}
-    for (const comment of formattedComments) {
-      const urls = comment.content.match(/(https?:\/\/[^\s]+)/g) || []
-      if (urls.length > 0) {
-        try {
-          const response = await fetch(`/api/link-preview?urls=${encodeURIComponent(urls.join(','))}`)
-          const data = await response.json()
-          if (data?.links) linkMetaMap[comment.id] = data.links
-        } catch { }
+    // OPTIMIZED: Fetch link previews asynchronously WITHOUT blocking the state update
+    (async () => {
+      const linkMetaMap: Record<string, LinkMetadata[]> = {}
+      for (const comment of formattedComments) {
+        const urls = comment.content.match(/(https?:\/\/[^\s]+)/g) || []
+        if (urls.length > 0) {
+          try {
+            const response = await fetch(`/api/link-preview?urls=${encodeURIComponent(urls.join(','))}`)
+            const data = await response.json()
+            if (data?.links) linkMetaMap[comment.id] = data.links
+          } catch { }
+        }
       }
-    }
-    setCommentLinkMetas(linkMetaMap)
+      setCommentLinkMetas(prev => ({ ...prev, ...linkMetaMap }))
+    })();
   }
 
   // Real-time subscription for comments

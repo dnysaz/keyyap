@@ -151,21 +151,21 @@ function SearchContent() {
       } else {
         let supabaseQuery = supabase
           .from('posts')
-          .select('*, profiles(*)')
+          .select('*, profiles!inner(*)')
           .eq('is_deleted', false)
 
         if (allFollowingIds.length > 0) {
           const ids = allFollowingIds.map(id => `"${id}"`).join(',')
-          // Filter by profile's privacy OR if we follow the author
-          supabaseQuery = supabaseQuery.or(`hide_from_search.eq.false,user_id.in.(${ids})`, { foreignTable: 'profiles' })
+          // Use neq.true to include NULL results
+          supabaseQuery = supabaseQuery.or(`hide_from_search.neq.true,id.in.(${ids})`, { foreignTable: 'profiles' })
         } else {
-          supabaseQuery = supabaseQuery.filter('profiles.hide_from_search', 'eq', false)
+          // Use neq.true to include NULL results
+          supabaseQuery = supabaseQuery.filter('profiles.hide_from_search', 'neq', true)
         }
 
         if (tagParam) {
           const tag = tagParam.toLowerCase()
-          // Search for EXACT hashtag match in metadata OR textual #hashtag in content
-          // This avoids broader matches like 'yapping' when searching for '#yapp'
+          // Search JSONB hashtags array OR textual content
           supabaseQuery = supabaseQuery.or(`hashtags.cs.["${tag}"],content.ilike.%#${tag}%`)
         } else if (queryParam) {
           supabaseQuery = supabaseQuery.ilike('content', `%${queryParam}%`)

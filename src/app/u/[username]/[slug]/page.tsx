@@ -596,14 +596,8 @@ export default function PostDetailPage() {
   }
 
   function formatCommentLinkText(content: string) {
-    // 1. Handle Mentions - Only link if followed
-    let formatted = content.replace(/@(\w+)/g, (match, username) => {
-      const isFollowing = followedUsers.some(u => u.username === username)
-      if (isFollowing) {
-        return `<a href="/u/${username}" class="text-primary font-bold hover:underline">@${username}</a>`
-      }
-      return `<span class="text-primary font-medium">@${username}</span>`
-    })
+    // 1. Handle Mentions - Always link for consistency
+    let formatted = content.replace(/@(\w+)/g, `<a href="/u/$1" class="text-primary font-bold hover:underline">@$1</a>`)
 
     // 2. Handle URLs
     formatted = formatted.replace(/(https?:\/\/[^\s]+)/g, (url) => {

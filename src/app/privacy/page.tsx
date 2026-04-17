@@ -64,10 +64,10 @@ export default function PrivacyPage() {
                   <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
                 </div>
               ) : (
-                <div className="prose prose-orange max-w-none">
+                <div className="legal-content-wrapper">
                   <div 
                     dangerouslySetInnerHTML={{ __html: privacyData?.value || 'Privacy policy will be updated soon.' }} 
-                    className="rich-text-content text-[15px] leading-relaxed text-gray-800"
+                    className="rich-text-content"
                   />
                 </div>
               )}
@@ -79,6 +79,20 @@ export default function PrivacyPage() {
       <div className="lg:hidden">
         <Navigation />
       </div>
+      <style jsx global>{`
+        .legal-content-wrapper { font-size: 14px; line-height: 1.5; color: #374151; }
+        .legal-content-wrapper > * { margin-top: 0 !important; margin-bottom: 0.4rem !important; }
+        .legal-content-wrapper h1, .legal-content-wrapper h2, .legal-content-wrapper h3 { 
+          font-weight: 700; color: #111; text-transform: uppercase; letter-spacing: 0.05em; 
+          margin-top: 1.5rem !important; margin-bottom: 0.5rem !important; display: block;
+        }
+        .legal-content-wrapper h1 { font-size: 1.25rem; }
+        .legal-content-wrapper h2 { font-size: 1rem; }
+        .legal-content-wrapper p:empty { display: none !important; }
+        .legal-content-wrapper ul, .legal-content-wrapper ol { margin-left: 1.5rem; margin-bottom: 1rem !important; }
+        .legal-content-wrapper li { margin-bottom: 0.2rem !important; }
+        .legal-content-wrapper a { color: #f36c1e; text-decoration: underline; }
+      `}</style>
     </div>
   )
 }

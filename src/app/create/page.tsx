@@ -298,7 +298,7 @@ export default function CreatePage() {
         <Sidebar />
         <div className="lg:ml-[68px] xl:ml-[275px] flex justify-center">
           <div className="flex w-full max-w-[1050px]">
-            <main className="flex-1 max-w-2xl border-x border-gray-100 min-h-screen relative">
+            <main className="flex-1 max-w-2xl border-x border-gray-100 min-h-screen pb-32 relative">
               <div className="sticky top-0 bg-white/80 backdrop-blur-md z-10 px-4 py-3 border-b border-gray-50 flex items-center justify-between">
                 <button onClick={() => router.back()} className="text-gray-500 hover:bg-gray-100 p-2 rounded-full transition-colors flex shrink-0">
                   <X className="w-6 h-6" />

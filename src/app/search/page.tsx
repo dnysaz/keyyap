@@ -13,6 +13,7 @@ import Avatar from '@/components/Avatar'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/authStore'
 import AuthGuard from '@/components/AuthGuard'
+import MapHeader from '@/components/MapHeader'
 
 function SearchContent() {
   const searchParams = useSearchParams()
@@ -21,6 +22,7 @@ function SearchContent() {
   
   const queryParam = searchParams.get('q') || ''
   const tagParam = searchParams.get('tag') || ''
+  const locationParam = searchParams.get('location') || ''
   
   const [query, setQuery] = useState(queryParam || (tagParam ? `#${tagParam}` : ''))
   const [posts, setPosts] = useState<any[]>([])
@@ -40,7 +42,7 @@ function SearchContent() {
       setQuery(queryParam)
     }
 
-    if (queryParam || tagParam) {
+    if (queryParam || tagParam || locationParam) {
       setPage(0)
       handleSearch(undefined, 0, false)
     }
@@ -80,7 +82,7 @@ function SearchContent() {
     if (e) e.preventDefault()
     
     // Prioritize search terms from params if this is an automated call (not from form submit)
-    const effectiveQuery = e ? query.trim() : (tagParam || queryParam || query.trim())
+    const effectiveQuery = e ? query.trim() : (tagParam || queryParam || locationParam || query.trim())
     if (!effectiveQuery) return
 
     // Save to recent searches
@@ -169,6 +171,8 @@ function SearchContent() {
           supabaseQuery = supabaseQuery.or(`hashtags.cs.["${tag}"],content.ilike.%#${tag}%`)
         } else if (queryParam) {
           supabaseQuery = supabaseQuery.ilike('content', `%${queryParam}%`)
+        } else if (locationParam) {
+          supabaseQuery = supabaseQuery.ilike('location_name', `%${locationParam}%`)
         }
 
         if (activeTab === 'latest') {
@@ -300,6 +304,15 @@ function SearchContent() {
           <FeedSkeleton count={3} />
         ) : (
           <>
+            {/* Map Header for Location Search */}
+            {locationParam && posts.length > 0 && posts[0].location_lat && (
+              <MapHeader 
+                lat={posts[0].location_lat} 
+                lng={posts[0].location_lng} 
+                locationName={posts[0].location_name} 
+              />
+            )}
+
             {activeTab === 'people' ? (
               <div className="divide-y divide-gray-100">
                 {profiles.length === 0 ? (

@@ -11,6 +11,7 @@ import { useAuthStore } from '@/stores/authStore'
 import Avatar from '@/components/Avatar'
 import Navigation from '@/components/Navigation'
 import AuthGuard from '@/components/AuthGuard'
+import LocationInput from '@/components/LocationInput'
 
 const MAX_CHARS = 512
 
@@ -34,6 +35,7 @@ export default function RepostPage() {
   const [fetchingPost, setFetchingPost] = useState(true)
   const [error, setError] = useState('')
   const [linkMeta, setLinkMeta] = useState<LinkMetadata | null>(null)
+  const [location, setLocation] = useState<{name: string, lat: number, lng: number} | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const [followedUsers, setFollowedUsers] = useState<any[]>([])
@@ -165,7 +167,10 @@ export default function RepostPage() {
         user_id: profile.id,
         content: content.trim(),
         quoted_post_id: originalPost.id,
-        hashtags: tagsArr.length > 0 ? tagsArr : null
+        hashtags: tagsArr.length > 0 ? tagsArr : null,
+        location_name: location?.name || null,
+        location_lat: location?.lat || null,
+        location_lng: location?.lng || null,
       })
 
       if (postError) throw postError
@@ -298,6 +303,10 @@ export default function RepostPage() {
                       <div className={`text-right text-xs mt-2 font-bold tracking-tight ${isOverLimit ? 'text-red-500' : 'text-gray-300'}`}>
                         {charCount} / {MAX_CHARS}
                       </div>
+                    </div>
+
+                    <div className="pt-6 border-t border-gray-50">
+                      <LocationInput onSelect={setLocation} />
                     </div>
 
                     {/* Original Post Section - Flat and integrated */}

@@ -51,7 +51,10 @@ CREATE TABLE IF NOT EXISTS public.posts (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   is_deleted BOOLEAN DEFAULT false,
-  quoted_post_id UUID REFERENCES public.posts(id) ON DELETE SET NULL
+  quoted_post_id UUID REFERENCES public.posts(id) ON DELETE SET NULL,
+  location_name TEXT,
+  location_lat DOUBLE PRECISION,
+  location_lng DOUBLE PRECISION
 );
 
 ALTER TABLE public.posts ENABLE ROW LEVEL SECURITY;
@@ -225,6 +228,12 @@ DROP TRIGGER IF EXISTS on_repost_inserted ON public.reposts;
 DROP TRIGGER IF EXISTS update_repost_counter ON public.reposts;
 DROP TRIGGER IF EXISTS update_shares_count_on_repost_insert ON public.reposts;
 DROP TRIGGER IF EXISTS update_shares_count_on_quote_insert ON public.posts; -- Hapus trigger pengganggu di tabel posts
+
+-- PATCH: Add Location support if not exists (Safety)
+ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS location_name TEXT;
+ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS location_lat DOUBLE PRECISION;
+ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS location_lng DOUBLE PRECISION;
+CREATE INDEX IF NOT EXISTS idx_posts_location_name ON public.posts(location_name);
 
 -- FUNC 2: Handle Counter Updates (Likes, Comments, Shares)
 -- Dioptimalkan agar lebih kuat dan tidak double

@@ -12,6 +12,7 @@ import AuthGuard from '@/components/AuthGuard'
 import Avatar from '@/components/Avatar'
 import { getSlug, formatDate } from '@/lib/utils'
 import Link from 'next/link'
+import LocationInput from '@/components/LocationInput'
 
 const MAX_CHARS = 512
 
@@ -33,6 +34,7 @@ export default function EditPage() {
   const [quotedPost, setQuotedPost] = useState<any>(null)
   const [quotedLinkMetas, setQuotedLinkMetas] = useState<any[]>([])
   
+  const [location, setLocation] = useState<{name: string, lat: number, lng: number} | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const [followedUsers, setFollowedUsers] = useState<any[]>([])
@@ -92,6 +94,14 @@ export default function EditPage() {
       if (data.quoted) {
         setQuotedPost(data.quoted)
         fetchQuotedLinks(data.quoted.content || '')
+      }
+
+      if (data.location_name) {
+        setLocation({
+          name: data.location_name,
+          lat: data.location_lat || 0,
+          lng: data.location_lng || 0
+        })
       }
       
       setLoading(false)
@@ -262,6 +272,9 @@ export default function EditPage() {
         .update({
           content: content.trim(),
           hashtags: tags.length > 0 ? tags : null,
+          location_name: location?.name || null,
+          location_lat: location?.lat || null,
+          location_lng: location?.lng || null,
           updated_at: new Date().toISOString()
         })
         .eq('id', postId)
@@ -510,6 +523,10 @@ export default function EditPage() {
                           ))}
                         </div>
                       )}
+                    </div>
+
+                    <div className="mt-6 pt-6 border-t border-gray-50">
+                      <LocationInput onSelect={setLocation} initialValue={location?.name} />
                     </div>
 
                       <button

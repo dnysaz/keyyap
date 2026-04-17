@@ -11,6 +11,7 @@ import { useAuthStore } from '@/stores/authStore'
 import Navigation from '@/components/Navigation'
 import AuthGuard from '@/components/AuthGuard'
 import Avatar from '@/components/Avatar'
+import LocationInput from '@/components/LocationInput'
 
 const MAX_CHARS = 512
 
@@ -28,6 +29,7 @@ export default function CreatePage() {
   const [mentionSearch, setMentionSearch] = useState('')
   const [showMentionSuggestions, setShowMentionSuggestions] = useState(false)
   const [highlightedIndex, setHighlightedIndex] = useState(0)
+  const [location, setLocation] = useState<{name: string, lat: number, lng: number} | null>(null)
   const textareaRef = useEffect(() => {
     // We'll use a local ref or query selector as already used in insertFormat
   }, [])
@@ -267,6 +269,9 @@ export default function CreatePage() {
         user_id: currentUser.id,
         content: content.trim(),
         hashtags: tags.length > 0 ? tags : null,
+        location_name: location?.name || null,
+        location_lat: location?.lat || null,
+        location_lng: location?.lng || null,
       })
 
       if (postError) {
@@ -416,35 +421,39 @@ export default function CreatePage() {
                     </div>
                   </div>
 
-                  <div className="pt-4 border-t border-gray-50">
-                    <label className="block text-gray-500 mb-2">
-                      Hashtags (Separate with comma)
-                    </label>
-                    <input
-                      type="text"
-                      value={hashtags}
-                      onChange={(e) => setHashtags(e.target.value)}
-                      placeholder="introvert, thoughts, daily"
-                      className="w-full py-2 border-0 focus:border-transparent focus:ring-0 outline-none bg-transparent text-gray-700 placeholder:text-gray-300"
-                    />
-                    {trendingTags.length > 0 && (
-                      <div className="flex flex-wrap items-center gap-2 mt-4">
-                        <span className="text-xs text-gray-400 flex items-center gap-1 font-bold uppercase tracking-wider">
-                          <TrendingUp className="w-3 h-3" /> Trending:
-                        </span>
-                        {trendingTags.map(tag => (
-                          <button
-                            key={tag}
-                            type="button"
-                            onClick={() => handleAppendTag(tag)}
-                            className="text-xs bg-gray-50 hover:bg-gray-100 text-gray-600 px-3 py-1.5 rounded-full transition-colors font-bold border border-gray-100"
-                          >
-                            #{tag}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                    <div className="pt-4 border-t border-gray-50">
+                      <label className="block text-gray-500 mb-2">
+                        Hashtags (Separate with comma)
+                      </label>
+                      <input
+                        type="text"
+                        value={hashtags}
+                        onChange={(e) => setHashtags(e.target.value)}
+                        placeholder="introvert, thoughts, daily"
+                        className="w-full py-2 border-0 focus:border-transparent focus:ring-0 outline-none bg-transparent text-gray-700 placeholder:text-gray-300"
+                      />
+                      {trendingTags.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-2 mt-4">
+                          <span className="text-xs text-gray-400 flex items-center gap-1 font-bold uppercase tracking-wider">
+                            <TrendingUp className="w-3 h-3" /> Trending:
+                          </span>
+                          {trendingTags.map(tag => (
+                            <button
+                              key={tag}
+                              type="button"
+                              onClick={() => handleAppendTag(tag)}
+                              className="text-xs bg-gray-50 hover:bg-gray-100 text-gray-600 px-3 py-1.5 rounded-full transition-colors font-bold border border-gray-100"
+                            >
+                              #{tag}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="pt-6 border-t border-gray-50">
+                      <LocationInput onSelect={setLocation} />
+                    </div>
 
                   <button
                     type="submit"

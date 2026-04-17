@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Heart, MessageCircle, Repeat, ExternalLink, Link as LinkIcon, Check, MoreVertical, Edit2, Trash2, Play, ExternalLink as ExternalLinkIcon } from 'lucide-react'
+import { Heart, MessageCircle, Repeat, ExternalLink, Link as LinkIcon, Check, MoreVertical, Edit2, Trash2, Play, ExternalLink as ExternalLinkIcon, MapPin } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -99,9 +99,16 @@ export default function PostCard({ post, currentUserId, onLikeChange, reposterUs
   useEffect(() => {
     if (urls.length > 0) {
       fetch(`/api/link-preview?urls=${encodeURIComponent(urls.join(','))}`)
-        .then((res) => res.json())
+        .then(async (res) => {
+          if (!res.ok) return { links: [] }
+          const contentType = res.headers.get('content-type')
+          if (contentType && contentType.includes('application/json')) {
+            return res.json()
+          }
+          return { links: [] }
+        })
         .then((data) => setLinkMetas(data.links || []))
-        .catch(console.error)
+        .catch(err => console.error('Link preview error:', err))
     }
   }, [urls.join(',')])
 
@@ -110,9 +117,16 @@ export default function PostCard({ post, currentUserId, onLikeChange, reposterUs
   useEffect(() => {
     if (qpUrls.length > 0) {
       fetch(`/api/link-preview?urls=${encodeURIComponent(qpUrls.join(','))}`)
-        .then((res) => res.json())
+        .then(async (res) => {
+          if (!res.ok) return { links: [] }
+          const contentType = res.headers.get('content-type')
+          if (contentType && contentType.includes('application/json')) {
+            return res.json()
+          }
+          return { links: [] }
+        })
         .then((data) => setQuotedLinkMetas(data.links || []))
-        .catch(console.error)
+        .catch(err => console.error('Quoted link preview error:', err))
     }
   }, [qpUrls.join(',')])
 
@@ -233,6 +247,16 @@ export default function PostCard({ post, currentUserId, onLikeChange, reposterUs
               </Link>
               <span className="text-gray-500 text-[15px] truncate">@{post.profiles?.username}</span>
               <span className="text-gray-400 text-[15px]">· {formatDate(post.created_at)}</span>
+              {post.location_name && (
+                <Link 
+                  href={`/search?location=${encodeURIComponent(post.location_name)}`} 
+                  className="flex items-center gap-1 text-primary hover:underline text-[13px] font-medium ml-1 bg-primary/5 px-2 py-0.5 rounded-full"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <MapPin className="w-3 h-3" />
+                  <span className="truncate max-w-[150px]">{post.location_name.split(',')[0]}</span>
+                </Link>
+              )}
             </div>
             
             <div className="relative" ref={menuRef}>

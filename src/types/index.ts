@@ -23,6 +23,9 @@ export interface Post {
   updated_at: string
   is_deleted: boolean
   quoted_post_id: string | null
+  location_name?: string | null
+  location_lat?: number | null
+  location_lng?: number | null
   profiles?: Profile
   post_likes?: PostLike[]
   is_liked?: boolean

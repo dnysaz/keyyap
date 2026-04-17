@@ -211,16 +211,20 @@ CREATE TRIGGER on_auth_user_created
 DROP TRIGGER IF EXISTS tr_update_comments ON public.comments;
 DROP TRIGGER IF EXISTS on_comment_inserted ON public.comments;
 DROP TRIGGER IF EXISTS update_comment_counter ON public.comments;
+DROP TRIGGER IF EXISTS update_comments_count_on_comment ON public.comments;
 
 -- Untuk Like
 DROP TRIGGER IF EXISTS tr_update_likes ON public.post_likes;
 DROP TRIGGER IF EXISTS on_like_inserted ON public.post_likes;
 DROP TRIGGER IF EXISTS update_like_counter ON public.post_likes;
+DROP TRIGGER IF EXISTS update_likes_count_on_like ON public.post_likes;
 
--- Untuk Repost
+-- Untuk Repost / Shares
 DROP TRIGGER IF EXISTS tr_update_reposts ON public.reposts;
 DROP TRIGGER IF EXISTS on_repost_inserted ON public.reposts;
 DROP TRIGGER IF EXISTS update_repost_counter ON public.reposts;
+DROP TRIGGER IF EXISTS update_shares_count_on_repost_insert ON public.reposts;
+DROP TRIGGER IF EXISTS update_shares_count_on_quote_insert ON public.posts;
 
 -- FUNC 2: Handle Counter Updates (Likes, Comments, Shares)
 -- Dioptimalkan agar lebih kuat dan tidak double

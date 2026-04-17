@@ -124,22 +124,26 @@ export default function PostCard({ post, currentUserId, onLikeChange, reposterUs
     if (isLoadingLike) return
 
     setIsLoadingLike(true)
+    const wasLiked = isLiked
     const newLiked = !isLiked
     const newCount = newLiked ? likesCount + 1 : Math.max(0, likesCount - 1)
     
+    // UI Update (Optimistic)
     setIsLiked(newLiked)
     setLikesCount(newCount)
     if (onLikeChange) onLikeChange(post.id, newLiked, newCount)
 
     try {
       if (newLiked) {
-        await supabase.from('post_likes').insert({ post_id: post.id, user_id: currentUserId })
+        // Use upsert to be safe against double-clicks/race conditions
+        await supabase.from('post_likes').upsert({ post_id: post.id, user_id: currentUserId }, { onConflict: 'user_id,post_id' })
       } else {
         await supabase.from('post_likes').delete().eq('post_id', post.id).eq('user_id', currentUserId)
       }
     } catch (err) {
       console.error('Like error:', err)
-      setIsLiked(!newLiked)
+      // Rollback on error
+      setIsLiked(wasLiked)
       setLikesCount(likesCount)
     } finally {
       setIsLoadingLike(false)

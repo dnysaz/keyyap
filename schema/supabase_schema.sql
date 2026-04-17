@@ -207,9 +207,20 @@ CREATE TRIGGER on_auth_user_created
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 -- CLEANUP: Menghapus semua kemungkinan trigger ganda yang pernah dibuat sebelumnya
+-- Untuk Komentar
 DROP TRIGGER IF EXISTS tr_update_comments ON public.comments;
 DROP TRIGGER IF EXISTS on_comment_inserted ON public.comments;
 DROP TRIGGER IF EXISTS update_comment_counter ON public.comments;
+
+-- Untuk Like
+DROP TRIGGER IF EXISTS tr_update_likes ON public.post_likes;
+DROP TRIGGER IF EXISTS on_like_inserted ON public.post_likes;
+DROP TRIGGER IF EXISTS update_like_counter ON public.post_likes;
+
+-- Untuk Repost
+DROP TRIGGER IF EXISTS tr_update_reposts ON public.reposts;
+DROP TRIGGER IF EXISTS on_repost_inserted ON public.reposts;
+DROP TRIGGER IF EXISTS update_repost_counter ON public.reposts;
 
 -- FUNC 2: Handle Counter Updates (Likes, Comments, Shares)
 -- Dioptimalkan agar lebih kuat dan tidak double

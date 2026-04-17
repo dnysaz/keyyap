@@ -25,6 +25,24 @@ const pacifico = Pacifico({
 export const metadata: Metadata = {
   title: "KeyYap! - The Good Place For Yapping!",
   description: "Express yourself freely on KeyYap!, the ultimate social space for text-based sharing and meaningful conversations.",
+  openGraph: {
+    title: "KeyYap! - The Good Place For Yapping!",
+    description: "Express yourself freely on KeyYap!, the ultimate social space for text-based sharing and meaningful conversations.",
+    images: [
+      {
+        url: 'https://raw.githubusercontent.com/dnysaz/keyyap-image/60b91a4783745207f6de32c73a2aa5b41ae1dc77/keyyap!%20(1).png',
+        width: 1200,
+        height: 630,
+        alt: 'KeyYap! - The Good Place For Yapping!'
+      }
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: "KeyYap! - The Good Place For Yapping!",
+    description: "Express yourself freely on KeyYap!, the ultimate social space for text-based sharing and meaningful conversations.",
+    images: ['https://raw.githubusercontent.com/dnysaz/keyyap-image/60b91a4783745207f6de32c73a2aa5b41ae1dc77/keyyap!%20(1).png'],
+  },
 };
 
 export const viewport: Viewport = {

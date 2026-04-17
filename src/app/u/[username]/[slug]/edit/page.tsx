@@ -35,6 +35,11 @@ export default function EditPage() {
   
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
+  const [followedUsers, setFollowedUsers] = useState<any[]>([])
+  const [mentionSearch, setMentionSearch] = useState('')
+  const [showMentionSuggestions, setShowMentionSuggestions] = useState(false)
+  const [highlightedIndex, setHighlightedIndex] = useState(0)
+
   const extractYoutubeId = (url: string) => {
     const match = url.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/)
     return match ? match[1] : null
@@ -94,7 +99,75 @@ export default function EditPage() {
 
     fetchPost()
     fetchTrendingTags()
-  }, [params.slug])
+    fetchFollowing()
+  }, [params.slug, user])
+
+  async function fetchFollowing() {
+    if (!user) return
+    const { data } = await supabase
+      .from('follows')
+      .select(`
+        following:following_id (
+          id,
+          username,
+          full_name,
+          avatar_url
+        )
+      `)
+      .eq('follower_id', user.id)
+    
+    if (data) {
+      setFollowedUsers(data.map((f: any) => f.following))
+    }
+  }
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value
+    setContent(val)
+    
+    const words = val.split(/[\s\n]/)
+    const lastWord = words[words.length - 1]
+    
+    if (lastWord.startsWith('@') && lastWord.length >= 2) {
+      setMentionSearch(lastWord.substring(1))
+      setShowMentionSuggestions(true)
+      setHighlightedIndex(0)
+    } else {
+      setShowMentionSuggestions(false)
+    }
+  }
+
+  const insertMention = (selectedUser: any) => {
+    const parts = content.split(' ')
+    const lastPart = parts[parts.length - 1]
+    if (lastPart.startsWith('@')) {
+      parts[parts.length - 1] = `@${selectedUser.username} `
+      setContent(parts.join(' '))
+    }
+    setShowMentionSuggestions(false)
+  }
+
+  const filteredMentions = followedUsers.filter(u => 
+    u.username.toLowerCase().includes(mentionSearch.toLowerCase()) || 
+    (u.full_name && u.full_name.toLowerCase().includes(mentionSearch.toLowerCase()))
+  )
+
+  const handleCreateKeyDown = (e: React.KeyboardEvent) => {
+    if (showMentionSuggestions && filteredMentions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setHighlightedIndex(prev => (prev + 1) % filteredMentions.length)
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setHighlightedIndex(prev => (prev - 1 + filteredMentions.length) % filteredMentions.length)
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault()
+        insertMention(filteredMentions[highlightedIndex])
+      } else if (e.key === 'Escape') {
+        setShowMentionSuggestions(false)
+      }
+    }
+  }
 
   async function fetchQuotedLinks(text: string) {
     const urlRegex = /(https?:\/\/[^\s]+)/g
@@ -279,10 +352,35 @@ export default function EditPage() {
                     </div>
 
                     <div className="relative">
+                      {/* Minimalist Mention Suggestions UI */}
+                      {showMentionSuggestions && filteredMentions.length > 0 && (
+                        <div className="absolute bottom-full left-0 right-0 w-full mb-2 pointer-events-auto z-50">
+                          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden animate-in fade-in slide-in-from-bottom-1 duration-200 uppercase tracking-tight">
+                            <div className="max-h-[220px] overflow-y-auto py-1">
+                              {filteredMentions.map((suggestion, idx) => (
+                                <button
+                                  key={suggestion.id}
+                                  type="button"
+                                  onClick={() => insertMention(suggestion)}
+                                  onMouseEnter={() => setHighlightedIndex(idx)}
+                                  className={`w-full flex items-center gap-3 p-2.5 px-4 transition-colors ${idx === highlightedIndex ? 'bg-gray-50' : 'hover:bg-gray-50/50'}`}
+                                >
+                                  <Avatar url={suggestion.avatar_url} username={suggestion.username} size="xs" />
+                                  <div className="text-left flex-1 min-w-0">
+                                    <div className="font-bold text-[13px] text-gray-900 truncate normal-case">{suggestion.full_name || suggestion.username}</div>
+                                    <div className="text-[11px] text-gray-400 truncate mt-0.5 normal-case">@{suggestion.username}</div>
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
                       <textarea
                         ref={textareaRef}
                         value={content}
-                        onChange={(e) => setContent(e.target.value)}
+                        onChange={handleInputChange}
+                        onKeyDown={handleCreateKeyDown}
                         placeholder="Edit your yap..."
                         className="w-full h-48 py-2 border-0 focus:border-transparent focus:ring-0 resize-none outline-none bg-transparent placeholder:text-gray-400 text-lg"
                         maxLength={MAX_CHARS + 20}

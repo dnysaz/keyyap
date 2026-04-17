@@ -58,14 +58,18 @@ export default function Feed({ isGlobal = false }: FeedProps) {
           .range(offset, offset + limit - 1)
 
         console.log('📡 Feed: Fetching following list...')
-        const { data: following, error: fError } = await supabase
-          .from('follows')
-          .select('following_id')
-          .eq('follower_id', currentUserId || '')
+        let followingIds: string[] = []
+        
+        if (currentUserId) {
+          const { data: following, error: fError } = await supabase
+            .from('follows')
+            .select('following_id')
+            .eq('follower_id', currentUserId)
+  
+          if (fError) console.error('❌ Follows fetch error:', fError)
+          followingIds = following?.map(f => f.following_id) || []
+        }
 
-        if (fError) console.error('❌ Follows fetch error:', fError)
-
-        const followingIds = following?.map(f => f.following_id) || []
         const allowedIds = [...followingIds, currentUserId].filter(Boolean) as string[]
         console.log(`👥 Feed: allowedIds [${allowedIds.length}] :`, allowedIds)
 

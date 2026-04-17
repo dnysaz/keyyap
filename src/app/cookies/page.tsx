@@ -1,53 +1,83 @@
-import Link from 'next/link'
+'use client'
 
-export const metadata = {
-  title: 'Cookie Policy | KeyYap',
-  description: 'Information about how KeyYap uses cookies and similar technologies.',
-}
+import { useState, useEffect } from 'react'
+import Link from 'next/link'
+import { ArrowLeft } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
+import Sidebar from '@/components/Sidebar'
+import RightSidebar from '@/components/RightSidebar'
+import Navigation from '@/components/Navigation'
 
 export default function CookiesPage() {
+  const [cookieData, setCookieData] = useState<{ value: string; updated_at: string } | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function fetchCookies() {
+      const { data } = await supabase
+        .from('site_settings')
+        .select('value, updated_at')
+        .eq('key', 'cookie_policy')
+        .single()
+      
+      if (data) {
+        setCookieData(data)
+      }
+      setLoading(false)
+    }
+    fetchCookies()
+  }, [])
+
+  const formattedDate = cookieData?.updated_at 
+    ? new Date(cookieData.updated_at).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      })
+    : 'Recently'
+
   return (
     <div className="min-h-screen bg-white">
-      <div className="max-w-3xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
-        <div className="mb-8">
-          <Link href="/" className="text-primary hover:underline font-medium">
-            &larr; Back to Home
-          </Link>
+      <Sidebar />
+      <div className="lg:ml-[72px] xl:ml-[260px] flex justify-center">
+        <div className="flex w-full max-w-[1050px] min-w-0 items-start">
+          <main className="flex-1 max-w-2xl w-full border-x border-gray-100 min-h-screen min-w-0 bg-white">
+            {/* Page Header */}
+            <div className="border-b border-gray-100 bg-white/90 backdrop-blur-md sticky top-0 z-30">
+              <div className="px-4 py-3 flex items-center gap-4">
+                <Link href="/" className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                  <ArrowLeft className="w-5 h-5 text-gray-900" />
+                </Link>
+                <div className="min-w-0">
+                  <h1 className="text-xl font-bold truncate">Cookie Policy</h1>
+                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">
+                    Updated: {formattedDate}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Content Area */}
+            <div className="p-6 md:p-8 pb-24">
+              {loading ? (
+                <div className="flex items-center justify-center py-20">
+                  <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              ) : (
+                <div className="prose prose-orange max-w-none">
+                  <div 
+                    dangerouslySetInnerHTML={{ __html: cookieData?.value || 'Cookie policy will be updated soon.' }} 
+                    className="rich-text-content text-[15px] leading-relaxed text-gray-800"
+                  />
+                </div>
+              )}
+            </div>
+          </main>
+          <RightSidebar />
         </div>
-        
-        <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight sm:text-4xl mb-8">
-          Cookie Policy
-        </h1>
-        
-        <div className="prose prose-blue max-w-none text-gray-600">
-          <p className="text-sm text-gray-500 mb-8">Last updated: April 15, 2026</p>
-          
-          <h2 className="text-xl font-bold mt-8 mb-4 text-gray-900">1. What are Cookies?</h2>
-          <p className="mb-4">
-            Cookies are small pieces of text sent to your browser by a website you visit. They help that website remember information about your visit, which can both make it easier to visit the site again and make the site more useful to you.
-          </p>
-
-          <h2 className="text-xl font-bold mt-8 mb-4 text-gray-900">2. How KeyYap Uses Cookies</h2>
-          <p className="mb-4">
-            We use cookies and similar technologies for several purposes, including:
-          </p>
-          <ul className="list-disc pl-5 mb-4 space-y-2">
-            <li><strong>Authentication:</strong> We use cookies to verify your account and determine when you're logged in.</li>
-            <li><strong>Security:</strong> We use cookies to help us keep your account, data and the KeyYap platform safe and secure.</li>
-            <li><strong>Preferences:</strong> We use cookies to remember your settings and preferences.</li>
-            <li><strong>Performance:</strong> We use cookies to provide you with the best experience possible.</li>
-          </ul>
-
-          <h2 className="text-xl font-bold mt-8 mb-4 text-gray-900">3. Third-Party Cookies</h2>
-          <p className="mb-4">
-            We may also allow certain business partners to place these technologies on KeyYap. These partners use these technologies to help us analyze how you use KeyYap.
-          </p>
-
-          <h2 className="text-xl font-bold mt-8 mb-4 text-gray-900">4. Your Choices</h2>
-          <p className="mb-4">
-            Your browser or device may offer settings that allow you to choose whether browser cookies are set and to delete them. For more information about these controls, visit your browser or device's help material.
-          </p>
-        </div>
+      </div>
+      <div className="lg:hidden">
+        <Navigation />
       </div>
     </div>
   )

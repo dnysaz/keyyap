@@ -185,6 +185,31 @@ CREATE POLICY "notifications_insert_auth" ON public.notifications FOR INSERT WIT
 CREATE POLICY "notifications_update_auth" ON public.notifications FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "notifications_delete_own" ON public.notifications FOR DELETE USING (auth.uid() = user_id);
 
+-- ============================================
+-- 8. SITE_SETTINGS TABLE
+-- ============================================
+CREATE TABLE IF NOT EXISTS public.site_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+INSERT INTO public.site_settings (key, value) VALUES
+('site_title', 'KeyYap! - The Good Place For Yapping!'),
+('site_description', 'Express yourself freely on KeyYap!, the ultimate social space for text-based sharing and meaningful conversations.'),
+('site_og_image', 'https://raw.githubusercontent.com/dnysaz/keyyap-image/60b91a4783745207f6de32c73a2aa5b41ae1dc77/keyyap!%20(1).png'),
+('terms_of_service', 'Welcome to KeyYap. By using our services...'),
+('privacy_policy', 'We value your privacy...'),
+('cookie_policy', 'We use cookies...')
+ON CONFLICT (key) DO NOTHING;
+
+ALTER TABLE public.site_settings ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read" ON public.site_settings;
+DROP POLICY IF EXISTS "Allow admin update" ON public.site_settings;
+CREATE POLICY "Allow public read" ON public.site_settings FOR SELECT USING (true);
+CREATE POLICY "Allow admin update" ON public.site_settings FOR ALL USING (auth.role() = 'authenticated');
+ALTER TABLE public.site_settings REPLICA IDENTITY FULL;
+
 -- =========================================================================
 -- FUNCTIONS & TRIGGERS
 -- =========================================================================
@@ -209,34 +234,7 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- CLEANUP: Menghapus semua kemungkinan trigger ganda yang pernah dibuat sebelumnya
--- Untuk Komentar
-DROP TRIGGER IF EXISTS tr_update_comments ON public.comments;
-DROP TRIGGER IF EXISTS on_comment_inserted ON public.comments;
-DROP TRIGGER IF EXISTS update_comment_counter ON public.comments;
-DROP TRIGGER IF EXISTS update_comments_count_on_comment ON public.comments;
-
--- Untuk Like
-DROP TRIGGER IF EXISTS tr_update_likes ON public.post_likes;
-DROP TRIGGER IF EXISTS on_like_inserted ON public.post_likes;
-DROP TRIGGER IF EXISTS update_like_counter ON public.post_likes;
-DROP TRIGGER IF EXISTS update_likes_count_on_like ON public.post_likes;
-
--- Untuk Repost / Shares
-DROP TRIGGER IF EXISTS tr_update_reposts ON public.reposts;
-DROP TRIGGER IF EXISTS on_repost_inserted ON public.reposts;
-DROP TRIGGER IF EXISTS update_repost_counter ON public.reposts;
-DROP TRIGGER IF EXISTS update_shares_count_on_repost_insert ON public.reposts;
-DROP TRIGGER IF EXISTS update_shares_count_on_quote_insert ON public.posts; -- Hapus trigger pengganggu di tabel posts
-
--- PATCH: Add Location support if not exists (Safety)
-ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS location_name TEXT;
-ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS location_lat DOUBLE PRECISION;
-ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS location_lng DOUBLE PRECISION;
-CREATE INDEX IF NOT EXISTS idx_posts_location_name ON public.posts(location_name);
-
--- FUNC 2: Handle Counter Updates (Likes, Comments, Shares)
--- Dioptimalkan agar lebih kuat dan tidak double
+-- COUNTER HANDLERS
 CREATE OR REPLACE FUNCTION public.handle_counters()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -263,7 +261,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
--- Pasang kembali trigger tunggal yang benar
 DROP TRIGGER IF EXISTS tr_update_likes ON public.post_likes;
 CREATE TRIGGER tr_update_likes AFTER INSERT OR DELETE ON public.post_likes FOR EACH ROW EXECUTE FUNCTION public.handle_counters();
 
@@ -273,7 +270,7 @@ CREATE TRIGGER tr_update_comments AFTER INSERT OR DELETE ON public.comments FOR 
 DROP TRIGGER IF EXISTS tr_update_reposts ON public.reposts;
 CREATE TRIGGER tr_update_reposts AFTER INSERT OR DELETE ON public.reposts FOR EACH ROW EXECUTE FUNCTION public.handle_counters();
 
--- FUNC 3: AUTOMATED NOTIFICATIONS
+-- NOTIFICATIONS HANDLER
 CREATE OR REPLACE FUNCTION public.handler_create_notification()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -319,98 +316,24 @@ CREATE TRIGGER tr_notify_repost AFTER INSERT ON public.reposts FOR EACH ROW EXEC
 DROP TRIGGER IF EXISTS tr_notify_comment ON public.comments;
 CREATE TRIGGER tr_notify_comment AFTER INSERT ON public.comments FOR EACH ROW EXECUTE FUNCTION handler_create_notification();
 
--- FUNC 4: HANDLE MENTIONS (Auto-detect @username)
-CREATE OR REPLACE FUNCTION public.handle_mentions()
-RETURNS TRIGGER AS $$
-DECLARE
-  mention_record RECORD;
-  mentioned_user_id UUID;
-BEGIN
-  -- Regex to find @username (looking for @ followed by word characters)
-  -- Matches are returned as a set of rows
-  FOR mention_record IN 
-    SELECT DISTINCT unnest(regexp_matches(NEW.content, '(?<!\w)@(\w+)', 'g')) as username
-  LOOP
-    -- Find the user_id for this username (case insensitive)
-    SELECT id INTO mentioned_user_id FROM public.profiles 
-    WHERE lower(username) = lower(mention_record.username);
-    
-    -- Insert notification if user exists and is not the sender
-    IF mentioned_user_id IS NOT NULL AND mentioned_user_id != NEW.user_id THEN
-      INSERT INTO public.notifications (user_id, type, from_user_id, post_id, comment_id)
-      VALUES (
-        mentioned_user_id, 
-        CASE WHEN TG_TABLE_NAME = 'posts' THEN 'mention_post' ELSE 'mention_comment' END, 
-        NEW.user_id, 
-        CASE WHEN TG_TABLE_NAME = 'posts' THEN NEW.id ELSE NEW.post_id END,
-        CASE WHEN TG_TABLE_NAME = 'comments' THEN NEW.id ELSE NULL END
-      ) ON CONFLICT DO NOTHING;
-    END IF;
-  END LOOP;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
-
-DROP TRIGGER IF EXISTS tr_process_post_mentions ON public.posts;
-CREATE TRIGGER tr_process_post_mentions AFTER INSERT ON public.posts FOR EACH ROW EXECUTE FUNCTION handle_mentions();
-
-DROP TRIGGER IF EXISTS tr_process_comment_mentions ON public.comments;
-CREATE TRIGGER tr_process_comment_mentions AFTER INSERT ON public.comments FOR EACH ROW EXECUTE FUNCTION handle_mentions();
-
--- =========================================================================
 -- REALTIME CONFIGURATION
--- =========================================================================
--- Cleanest way to refresh: Drop existing and recreate for all tables
 DROP PUBLICATION IF EXISTS supabase_realtime;
-
 CREATE PUBLICATION supabase_realtime FOR TABLE 
   public.posts, 
   public.comments, 
   public.notifications, 
   public.profiles, 
-  public.post_likes;
+  public.post_likes,
+  public.site_settings;
 
 ALTER TABLE public.posts REPLICA IDENTITY FULL;
 ALTER TABLE public.comments REPLICA IDENTITY FULL;
 ALTER TABLE public.notifications REPLICA IDENTITY FULL;
 ALTER TABLE public.profiles REPLICA IDENTITY FULL;
 
--- ============================================
 -- STORAGE CONFIGURATION
--- ============================================
 INSERT INTO storage.buckets (id, name, public) VALUES ('avatars', 'avatars', true) ON CONFLICT (id) DO NOTHING;
-
 DROP POLICY IF EXISTS "avatars_select_public" ON storage.objects;
 DROP POLICY IF EXISTS "avatars_insert_auth" ON storage.objects;
-
 CREATE POLICY "avatars_select_public" ON storage.objects FOR SELECT USING (bucket_id = 'avatars');
 CREATE POLICY "avatars_insert_auth" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'avatars' AND auth.role() = 'authenticated');
-
--- =========================================================================
--- PATCH v3.2 — Copy everything below this line into Supabase SQL Editor
--- =========================================================================
-
--- FIX 1: Allow database triggers to insert notifications
--- The old policy (auth.uid() = from_user_id) blocked triggers from creating
--- notifications because triggers run in a server context where auth.uid()
--- may not match. SELECT/UPDATE/DELETE remain locked to user_id.
-DROP POLICY IF EXISTS "notifications_insert_auth" ON public.notifications;
-CREATE POLICY "notifications_insert_auth" ON public.notifications FOR INSERT WITH CHECK (true);
-
--- FIX 2: Sync all comment counts (one-time repair for stale counters)
-UPDATE public.posts p
-SET comments_count = (
-  SELECT count(*) FROM public.comments c 
-  WHERE c.post_id = p.id AND c.is_deleted = false
-);
-
--- =========================================================================
--- PATCH v3.3 — Edit/Delete Comment Feature
--- =========================================================================
-
--- Add deleted_at column to comments
-ALTER TABLE public.comments ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
-
--- Allow viewing deleted comments (they render as placeholders in UI)
-DROP POLICY IF EXISTS "comments_select_public" ON public.comments;
-CREATE POLICY "comments_select_public" ON public.comments FOR SELECT USING (true);

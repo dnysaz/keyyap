@@ -1,56 +1,85 @@
-import Link from 'next/link'
+'use client'
 
-export const metadata = {
-  title: 'Terms of Service | KeyYap',
-  description: 'Terms of Service for KeyYap, the social platform.',
-}
+import { useState, useEffect } from 'react'
+import Link from 'next/link'
+import { ArrowLeft } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
+import Sidebar from '@/components/Sidebar'
+import RightSidebar from '@/components/RightSidebar'
+import Navigation from '@/components/Navigation'
 
 export default function TermsPage() {
+  const [termsData, setTermsData] = useState<{ value: string; updated_at: string } | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function fetchTerms() {
+      const { data } = await supabase
+        .from('site_settings')
+        .select('value, updated_at')
+        .eq('key', 'terms_of_service')
+        .single()
+      
+      if (data) {
+        setTermsData(data)
+      }
+      setLoading(false)
+    }
+    fetchTerms()
+  }, [])
+
+  const formattedDate = termsData?.updated_at 
+    ? new Date(termsData.updated_at).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      })
+    : 'Recently'
+
   return (
     <div className="min-h-screen bg-white">
-      <div className="max-w-3xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
-        <div className="mb-8">
-          <Link href="/" className="text-primary hover:underline font-medium">
-            &larr; Back to Home
-          </Link>
+      <Sidebar />
+      <div className="lg:ml-[72px] xl:ml-[260px] flex justify-center">
+        <div className="flex w-full max-w-[1050px] min-w-0 items-start">
+          <main className="flex-1 max-w-2xl w-full border-x border-gray-100 min-h-screen min-w-0 bg-white">
+            {/* Page Header */}
+            <div className="border-b border-gray-100 bg-white/90 backdrop-blur-md sticky top-0 z-30">
+              <div className="px-4 py-3 flex items-center gap-4">
+                <Link href="/" className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                  <ArrowLeft className="w-5 h-5 text-gray-900" />
+                </Link>
+                <div className="min-w-0">
+                  <h1 className="text-xl font-bold truncate">Terms of Service</h1>
+                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">
+                    Updated: {formattedDate}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Content Area */}
+            <div className="p-6 md:p-8 pb-24">
+              {loading ? (
+                <div className="flex items-center justify-center py-20">
+                  <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              ) : (
+                <div className="prose prose-orange max-w-none">
+                  <div 
+                    dangerouslySetInnerHTML={{ __html: termsData?.value || 'Terms and conditions will be updated soon.' }} 
+                    className="rich-text-content text-[15px] leading-relaxed text-gray-800"
+                  />
+                </div>
+              )}
+            </div>
+          </main>
+          <RightSidebar />
         </div>
-        
-        <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight sm:text-4xl mb-8">
-          Terms of Service
-        </h1>
-        
-        <div className="prose prose-blue max-w-none prose-p:text-gray-600 prose-headings:text-gray-900 text-gray-600">
-          <p className="text-sm text-gray-500 mb-8">Last updated: April 15, 2026</p>
-          
-          <h2 className="text-xl font-bold mt-8 mb-4 text-gray-900">1. Introduction</h2>
-          <p className="mb-4">
-            Welcome to KeyYap. By accessing or using our website, services, and applications, you agree to be bound by these Terms of Service. If you do not agree, please do not use our platform.
-          </p>
-
-          <h2 className="text-xl font-bold mt-8 mb-4 text-gray-900">2. User Accounts</h2>
-          <p className="mb-4">
-            You must be at least 13 years old to use KeyYap. You are responsible for safeguarding your account, so use a strong password and limit its use to this account. We cannot and will not be liable for any loss or damage arising from your failure to comply with the above requirements.
-          </p>
-
-          <h2 className="text-xl font-bold mt-8 mb-4 text-gray-900">3. Content and Conduct</h2>
-          <p className="mb-4">
-            You retain your rights to any content you submit, post or display on or through KeyYap. What's yours is yours. However, by submitting content, you grant us a worldwide, non-exclusive, royalty-free license to use, copy, reproduce, process, adapt, modify, publish, transmit, display and distribute such content.
-          </p>
-          <p className="mb-4">
-            You agree not to post content that is: abusive, threatening, defamatory, obscene, fraudulent, deceptive, or misleading.
-          </p>
-
-          <h2 className="text-xl font-bold mt-8 mb-4 text-gray-900">4. Termination</h2>
-          <p className="mb-4">
-            We may suspend or terminate your account or cease providing you with all or part of the Services at any time for any or no reason, including, but not limited to, if we reasonably believe you have violated these Terms of Service.
-          </p>
-
-          <h2 className="text-xl font-bold mt-8 mb-4 text-gray-900">5. Changes to Terms</h2>
-          <p className="mb-4">
-            We may revise these Terms from time to time. The changes will not be retroactive, and the most current version of the Terms, which will always be at keyyap.com/terms, will govern our relationship with you.
-          </p>
-        </div>
+      </div>
+      <div className="lg:hidden">
+        <Navigation />
       </div>
     </div>
   )
 }
+

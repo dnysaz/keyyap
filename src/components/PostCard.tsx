@@ -224,7 +224,7 @@ export default function PostCard({ post, currentUserId, onLikeChange, reposterUs
   const displayedContent = showFull || post.content.length <= TRUNCATE_LENGTH ? post.content : post.content.slice(0, TRUNCATE_LENGTH) + '...'
 
   return (
-    <div className="bg-white border-b border-gray-100 hover:bg-gray-50/20 transition-colors p-4 relative group">
+    <div className="bg-white border-b border-gray-100 hover:bg-gray-50/30 transition-all px-4 py-8 md:py-10 relative group">
       {reposterUsername && (
         <div className="flex items-center gap-2 mb-2 ml-[45px] overflow-hidden">
           <Repeat className="w-3.5 h-3.5 text-gray-500 shrink-0" />
@@ -501,7 +501,7 @@ export default function PostCard({ post, currentUserId, onLikeChange, reposterUs
           })()}
 
           {/* Engagement Buttons */}
-          <div className="flex items-center justify-between sm:justify-start sm:gap-10 mt-4 text-gray-500">
+          <div className="flex items-center justify-start gap-x-8 sm:gap-x-12 mt-4 text-gray-500">
             {/* Comment Button */}
             <Link href={`/u/${post.profiles?.username}/${getSlug(post.id, post.content)}`} className="flex items-center gap-2 hover:text-sky-500 transition-colors group/comment">
               <div className="p-2 -m-2 group-hover/comment:bg-sky-50 rounded-full transition-colors">

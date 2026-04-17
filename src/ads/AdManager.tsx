@@ -2,7 +2,7 @@
 
 import React, { useMemo } from 'react'
 import { FeedAd01, FeedAd02 } from './feed_ads'
-import { SidebarAdEchoCloud, SidebarAdKeyYapPremium } from './sidebar_ads'
+import { SidebarAdEchoCloud } from './sidebar_ads'
 
 /**
  * Returns a random Feed Ad component
@@ -19,7 +19,7 @@ export const RandomFeedAd = () => {
  * Returns a random Sidebar Ad component
  */
 export const RandomSidebarAd = () => {
-  const ads = [SidebarAdEchoCloud, SidebarAdKeyYapPremium]
+  const ads = [SidebarAdEchoCloud]
   const AdComponent = useMemo(() => ads[Math.floor(Math.random() * ads.length)], [])
   return <AdComponent />
 }

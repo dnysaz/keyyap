@@ -4,6 +4,7 @@ import { Inter, Poppins, Pacifico } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthProvider";
 import NotificationHandler from "@/components/NotificationHandler";
+import { supabase } from "@/lib/supabase";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -22,32 +23,49 @@ const pacifico = Pacifico({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "KeyYap! - The Good Place For Yapping!",
-  description: "Express yourself freely on KeyYap!, the ultimate social space for text-based sharing and meaningful conversations.",
-  openGraph: {
-    title: "KeyYap! - The Good Place For Yapping!",
-    description: "Express yourself freely on KeyYap!, the ultimate social space for text-based sharing and meaningful conversations.",
-    images: [
-      {
-        url: 'https://raw.githubusercontent.com/dnysaz/keyyap-image/60b91a4783745207f6de32c73a2aa5b41ae1dc77/keyyap!%20(1).png',
-        width: 1200,
-        height: 630,
-        alt: 'KeyYap! - The Good Place For Yapping!'
-      }
-    ],
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: "KeyYap! - The Good Place For Yapping!",
-    description: "Express yourself freely on KeyYap!, the ultimate social space for text-based sharing and meaningful conversations.",
-    images: ['https://raw.githubusercontent.com/dnysaz/keyyap-image/60b91a4783745207f6de32c73a2aa5b41ae1dc77/keyyap!%20(1).png'],
-  },
-  icons: {
-    icon: 'https://raw.githubusercontent.com/dnysaz/keyyap-image/60b91a4783745207f6de32c73a2aa5b41ae1dc77/keyyap!%20(1).png',
-    apple: 'https://raw.githubusercontent.com/dnysaz/keyyap-image/60b91a4783745207f6de32c73a2aa5b41ae1dc77/keyyap!%20(1).png',
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  // Fetch SEO settings from Supabase
+  const { data } = await supabase
+    .from('site_settings')
+    .select('key, value')
+    .in('key', ['site_title', 'site_description', 'site_og_image']);
+
+  const settings = data?.reduce((acc: any, item) => {
+    acc[item.key] = item.value;
+    return acc;
+  }, {}) || {};
+
+  const title = settings.site_title || "KeyYap! - The Good Place For Yapping!";
+  const description = settings.site_description || "Express yourself freely on KeyYap!, the ultimate social space for text-based sharing and meaningful conversations.";
+  const ogImage = settings.site_og_image || 'https://raw.githubusercontent.com/dnysaz/keyyap-image/60b91a4783745207f6de32c73a2aa5b41ae1dc77/keyyap!%20(1).png';
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      images: [
+        {
+          url: ogImage,
+          width: 1200,
+          height: 630,
+          alt: title
+        }
+      ],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [ogImage],
+    },
+    icons: {
+      icon: 'https://raw.githubusercontent.com/dnysaz/keyyap-image/60b91a4783745207f6de32c73a2aa5b41ae1dc77/keyyap!%20(1).png',
+      apple: 'https://raw.githubusercontent.com/dnysaz/keyyap-image/60b91a4783745207f6de32c73a2aa5b41ae1dc77/keyyap!%20(1).png',
+    },
+  };
+}
 
 export const viewport: Viewport = {
   width: 'device-width',

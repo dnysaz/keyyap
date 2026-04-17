@@ -48,8 +48,13 @@ export default function RightSidebar({ hideSearch = false }: RightSidebarProps) 
         </div>
       )}
 
+      {/* Top Promotion Slot */}
+      <div className="mt-1 mb-4">
+        <RandomSidebarAd />
+      </div>
+
       {/* Trending Section */}
-      <div className="mt-4 bg-[#f7f9f9] rounded-2xl overflow-hidden border border-gray-50 shadow-sm animate-in fade-in duration-500">
+      <div className="mt-0 bg-[#f7f9f9] rounded-2xl overflow-hidden border border-gray-50 shadow-sm animate-in fade-in duration-500">
         <h2 className="px-4 py-3 text-xl font-extrabold text-gray-900">Trends for you</h2>
         
         {trendingTags.length === 0 ? (

@@ -5,7 +5,7 @@ import { ExternalLink } from 'lucide-react'
 
 export default function InFeedAd() {
   return (
-    <div className="p-4 border-b border-gray-100 hover:bg-gray-50/50 transition-all cursor-pointer group">
+    <div className="px-4 py-8 md:py-10 border-b border-gray-100 hover:bg-gray-50/50 transition-all cursor-pointer group">
       <div className="flex gap-3">
         {/* Ad Icon Placeholder */}
         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-orange-400 flex items-center justify-center shrink-0 shadow-sm">

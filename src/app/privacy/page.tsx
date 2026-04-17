@@ -1,60 +1,85 @@
-import Link from 'next/link'
+'use client'
 
-export const metadata = {
-  title: 'Privacy Policy | KeyYap',
-  description: 'Privacy Policy for KeyYap, explaining how we collect and use your data.',
-}
+import { useState, useEffect } from 'react'
+import Link from 'next/link'
+import { ArrowLeft } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
+import Sidebar from '@/components/Sidebar'
+import RightSidebar from '@/components/RightSidebar'
+import Navigation from '@/components/Navigation'
 
 export default function PrivacyPage() {
+  const [privacyData, setPrivacyData] = useState<{ value: string; updated_at: string } | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function fetchPrivacy() {
+      const { data } = await supabase
+        .from('site_settings')
+        .select('value, updated_at')
+        .eq('key', 'privacy_policy')
+        .single()
+      
+      if (data) {
+        setPrivacyData(data)
+      }
+      setLoading(false)
+    }
+    fetchPrivacy()
+  }, [])
+
+  const formattedDate = privacyData?.updated_at 
+    ? new Date(privacyData.updated_at).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      })
+    : 'Recently'
+
   return (
     <div className="min-h-screen bg-white">
-      <div className="max-w-3xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
-        <div className="mb-8">
-          <Link href="/" className="text-primary hover:underline font-medium">
-            &larr; Back to Home
-          </Link>
+      <Sidebar />
+      <div className="lg:ml-[72px] xl:ml-[260px] flex justify-center">
+        <div className="flex w-full max-w-[1050px] min-w-0 items-start">
+          <main className="flex-1 max-w-2xl w-full border-x border-gray-100 min-h-screen min-w-0 bg-white">
+            {/* Page Header */}
+            <div className="border-b border-gray-100 bg-white/90 backdrop-blur-md sticky top-0 z-30">
+              <div className="px-4 py-3 flex items-center gap-4">
+                <Link href="/" className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                  <ArrowLeft className="w-5 h-5 text-gray-900" />
+                </Link>
+                <div className="min-w-0">
+                  <h1 className="text-xl font-bold truncate">Privacy Policy</h1>
+                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">
+                    Updated: {formattedDate}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Content Area */}
+            <div className="p-6 md:p-8 pb-24">
+              {loading ? (
+                <div className="flex items-center justify-center py-20">
+                  <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              ) : (
+                <div className="prose prose-orange max-w-none">
+                  <div 
+                    dangerouslySetInnerHTML={{ __html: privacyData?.value || 'Privacy policy will be updated soon.' }} 
+                    className="rich-text-content text-[15px] leading-relaxed text-gray-800"
+                  />
+                </div>
+              )}
+            </div>
+          </main>
+          <RightSidebar />
         </div>
-        
-        <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight sm:text-4xl mb-8">
-          Privacy Policy
-        </h1>
-        
-        <div className="prose prose-blue max-w-none text-gray-600">
-          <p className="text-sm text-gray-500 mb-8">Last updated: April 15, 2026</p>
-          
-          <h2 className="text-xl font-bold mt-8 mb-4 text-gray-900">1. Information We Collect</h2>
-          <p className="mb-4">
-            We collect the content, communications and other information you provide when you use our Products, including when you sign up for an account, create or share content, and message or communicate with others.
-          </p>
-
-          <h2 className="text-xl font-bold mt-8 mb-4 text-gray-900">2. How We Use Information</h2>
-          <p className="mb-4">
-            We use the information we have (subject to choices you make) as described below and to provide and support the KeyYap platform and related services.
-          </p>
-          <ul className="list-disc pl-5 mb-4 space-y-2">
-            <li>Provide, personalize and improve our Products.</li>
-            <li>Provide measurement, analytics, and other business services.</li>
-            <li>Promote safety, integrity and security.</li>
-            <li>Communicate with you.</li>
-          </ul>
-
-          <h2 className="text-xl font-bold mt-8 mb-4 text-gray-900">3. Sharing Information</h2>
-          <p className="mb-4">
-            Your information is shared with others in the following ways:
-            People and accounts you share and communicate with. Public information can be seen by anyone, on or off our Products.
-          </p>
-
-          <h2 className="text-xl font-bold mt-8 mb-4 text-gray-900">4. Your Data Rights</h2>
-          <p className="mb-4">
-            You have the right to access, rectify, port and erase your data. You can access and delete your data directly from your KeyYap account settings.
-          </p>
-
-          <h2 className="text-xl font-bold mt-8 mb-4 text-gray-900">5. Contact Us</h2>
-          <p className="mb-4">
-            If you have questions about this policy, you can contact us securely through our privacy center.
-          </p>
-        </div>
+      </div>
+      <div className="lg:hidden">
+        <Navigation />
       </div>
     </div>
   )
 }
+

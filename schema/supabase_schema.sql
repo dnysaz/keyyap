@@ -224,7 +224,8 @@ DROP TRIGGER IF EXISTS tr_update_reposts ON public.reposts;
 DROP TRIGGER IF EXISTS on_repost_inserted ON public.reposts;
 DROP TRIGGER IF EXISTS update_repost_counter ON public.reposts;
 DROP TRIGGER IF EXISTS update_shares_count_on_repost_insert ON public.reposts;
-DROP TRIGGER IF EXISTS update_shares_count_on_quote_insert ON public.posts;
+DROP TRIGGER IF EXISTS update_shares_count_on_quote_insert ON public.posts; -- Hapus trigger pengganggu di tabel posts
+DROP TRIGGER IF EXISTS update_shares_count_on_quo... ON public.posts; -- Hapus kemungkinan nama terpotong di UI
 
 -- FUNC 2: Handle Counter Updates (Likes, Comments, Shares)
 -- Dioptimalkan agar lebih kuat dan tidak double

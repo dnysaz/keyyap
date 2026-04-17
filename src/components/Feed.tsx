@@ -69,15 +69,15 @@ export default function Feed({ isGlobal = false }: FeedProps) {
         const allowedIds = [...followingIds, currentUserId].filter(Boolean) as string[]
         console.log(`👥 Feed: allowedIds [${allowedIds.length}] :`, allowedIds)
 
+        // Global Guest Filter: If not logged in, ALWAYS only show 'keyyap' posts
+        if (!user) {
+          query = query.filter('profiles.username', 'eq', 'keyyap')
+        }
+
         // Filter logic: Standard Global Feed
-        if (isGlobal) {
-          // If guest, only show posts from 'keyyap' account
-          if (!user) {
-            query = query.filter('profiles.username', 'eq', 'keyyap')
-          } else {
-            // Logged in users: show all non-hidden posts
-            query = query.filter('profiles.hide_from_global', 'neq', true)
-          }
+        if (isGlobal && user) {
+          // Logged in users: show all non-hidden posts
+          query = query.filter('profiles.hide_from_global', 'neq', true)
         }
 
         if (currentUserId && !isGlobal) {

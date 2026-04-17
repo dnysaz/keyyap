@@ -71,9 +71,13 @@ export default function Feed({ isGlobal = false }: FeedProps) {
 
         // Filter logic: Standard Global Feed
         if (isGlobal) {
-          // Show only posts from users who haven't hidden themselves from global
-          // This captures both 'false' and 'NULL' values
-          query = query.filter('profiles.hide_from_global', 'neq', true)
+          // If guest, only show posts from 'keyyap' account
+          if (!user) {
+            query = query.filter('profiles.username', 'eq', 'keyyap')
+          } else {
+            // Logged in users: show all non-hidden posts
+            query = query.filter('profiles.hide_from_global', 'neq', true)
+          }
         }
 
         if (currentUserId && !isGlobal) {

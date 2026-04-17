@@ -43,6 +43,10 @@ export const metadata: Metadata = {
     description: "Express yourself freely on KeyYap!, the ultimate social space for text-based sharing and meaningful conversations.",
     images: ['https://raw.githubusercontent.com/dnysaz/keyyap-image/60b91a4783745207f6de32c73a2aa5b41ae1dc77/keyyap!%20(1).png'],
   },
+  icons: {
+    icon: 'https://raw.githubusercontent.com/dnysaz/keyyap-image/60b91a4783745207f6de32c73a2aa5b41ae1dc77/keyyap!%20(1).png',
+    apple: 'https://raw.githubusercontent.com/dnysaz/keyyap-image/60b91a4783745207f6de32c73a2aa5b41ae1dc77/keyyap!%20(1).png',
+  },
 };
 
 export const viewport: Viewport = {

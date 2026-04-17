@@ -23,8 +23,8 @@ const pacifico = Pacifico({
 });
 
 export const metadata: Metadata = {
-  title: "KeyYap - Express yourself",
-  description: "TikTok for introverts. Share your thoughts, no videos, no photos, just your words.",
+  title: "KeyYap! - The Good Place For Yapping!",
+  description: "Express yourself freely on KeyYap!, the ultimate social space for text-based sharing and meaningful conversations.",
 };
 
 export const viewport: Viewport = {

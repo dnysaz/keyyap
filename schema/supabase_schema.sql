@@ -25,6 +25,9 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   CONSTRAINT username_length CHECK (char_length(username) >= 3)
 );
 
+-- Ensure cover_url exists (in case table was already created)
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS cover_url TEXT;
+
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "profiles_select_public" ON public.profiles;
@@ -215,18 +218,35 @@ ALTER TABLE public.site_settings REPLICA IDENTITY FULL;
 -- FUNCTIONS & TRIGGERS
 -- =========================================================================
 
--- FUNC 1: Handle New User Signup
+-- FUNC 1: Handle New User Signup (ADVANCED: Auto-username + Auto-follow)
 CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
+RETURNS trigger AS $$
+DECLARE
+  base_username TEXT;
+  final_username TEXT;
+  keyyap_id UUID := '140e6089-cc79-4d6d-b80c-c46644fcfc45'; -- Official @keyyap ID
 BEGIN
-  INSERT INTO public.profiles (id, username, full_name)
+  -- 1. GENERATE USERNAME
+  base_username := lower(substring(split_part(new.email, '@', 1) from 1 for 5));
+  final_username := base_username || '_' || substr(md5(random()::text), 1, 3);
+
+  -- 2. CREATE PROFILE
+  INSERT INTO public.profiles (id, username, full_name, avatar_url)
   VALUES (
-    NEW.id,
-    COALESCE(NEW.raw_user_meta_data->>'username', split_part(NEW.email, '@', 1)),
-    COALESCE(NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1))
+    new.id,
+    final_username,
+    COALESCE(new.raw_user_meta_data->>'full_name', final_username),
+    new.raw_user_meta_data->>'avatar_url'
   )
   ON CONFLICT (id) DO NOTHING;
-  RETURN NEW;
+
+  -- 3. AUTO-FOLLOW OFFICIAL ACCOUNT
+  -- This ensures the new user's home feed is not empty
+  INSERT INTO public.follows (follower_id, following_id)
+  VALUES (new.id, keyyap_id)
+  ON CONFLICT DO NOTHING;
+
+  RETURN new;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
@@ -337,7 +357,12 @@ INSERT INTO storage.buckets (id, name, public) VALUES ('avatars', 'avatars', tru
 INSERT INTO storage.buckets (id, name, public) VALUES ('covers', 'covers', true) ON CONFLICT (id) DO NOTHING;
 DROP POLICY IF EXISTS "avatars_select_public" ON storage.objects;
 DROP POLICY IF EXISTS "avatars_insert_auth" ON storage.objects;
+DROP POLICY IF EXISTS "covers_select_public" ON storage.objects;
+DROP POLICY IF EXISTS "covers_insert_auth" ON storage.objects;
 CREATE POLICY "avatars_select_public" ON storage.objects FOR SELECT USING (bucket_id = 'avatars');
 CREATE POLICY "avatars_insert_auth" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'avatars' AND auth.role() = 'authenticated');
 CREATE POLICY "covers_select_public" ON storage.objects FOR SELECT USING (bucket_id = 'covers');
 CREATE POLICY "covers_insert_auth" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'covers' AND auth.role() = 'authenticated');
+
+-- RELOAD SCHEMA CACHE
+NOTIFY pgrst, 'reload schema';

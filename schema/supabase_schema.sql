@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   username VARCHAR(50) UNIQUE NOT NULL,
   full_name TEXT,
   avatar_url TEXT,
+  cover_url TEXT,
   bio TEXT,
   website TEXT,
   is_private BOOLEAN DEFAULT false,
@@ -333,7 +334,10 @@ ALTER TABLE public.profiles REPLICA IDENTITY FULL;
 
 -- STORAGE CONFIGURATION
 INSERT INTO storage.buckets (id, name, public) VALUES ('avatars', 'avatars', true) ON CONFLICT (id) DO NOTHING;
+INSERT INTO storage.buckets (id, name, public) VALUES ('covers', 'covers', true) ON CONFLICT (id) DO NOTHING;
 DROP POLICY IF EXISTS "avatars_select_public" ON storage.objects;
 DROP POLICY IF EXISTS "avatars_insert_auth" ON storage.objects;
 CREATE POLICY "avatars_select_public" ON storage.objects FOR SELECT USING (bucket_id = 'avatars');
 CREATE POLICY "avatars_insert_auth" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'avatars' AND auth.role() = 'authenticated');
+CREATE POLICY "covers_select_public" ON storage.objects FOR SELECT USING (bucket_id = 'covers');
+CREATE POLICY "covers_insert_auth" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'covers' AND auth.role() = 'authenticated');

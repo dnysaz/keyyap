@@ -13,6 +13,7 @@ import Avatar from '@/components/Avatar'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/authStore'
 import AuthGuard from '@/components/AuthGuard'
+import { getBannerGradient } from '@/lib/image-utils'
 
 export default function ProfilePage() {
   const params = useParams()
@@ -268,10 +269,14 @@ export default function ProfilePage() {
 
               {/* Banner & Avatar */}
               <div className="relative">
-                <div className="h-32 bg-gray-200 xl:h-48">
-                  {profile.banner_url && <img src={profile.banner_url} className="w-full h-full object-cover" alt="" />}
+                <div className="h-32 xl:h-48 relative overflow-hidden">
+                  {profile.cover_url ? (
+                    <img src={profile.cover_url} className="w-full h-full object-cover" alt="" />
+                  ) : (
+                    <div className={`w-full h-full bg-gradient-to-r ${getBannerGradient(profile.id)}`} />
+                  )}
                 </div>
-                <div className="absolute -bottom-12 left-4 xl:-bottom-16 xl:left-6">
+                <div className="absolute -bottom-1 left-4 xl:-bottom-2 xl:left-6">
                   <div className="rounded-full border-4 border-white bg-white overflow-hidden shadow-sm">
                     <Avatar url={profile.avatar_url || undefined} username={profile.username} size="lg" />
                   </div>

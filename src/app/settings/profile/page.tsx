@@ -8,6 +8,8 @@ import Navigation from '@/components/Navigation'
 import Sidebar from '@/components/Sidebar'
 import RightSidebar from '@/components/RightSidebar'
 import Avatar from '@/components/Avatar'
+import { Camera, Image as ImageIcon } from 'lucide-react'
+import { compressImage, getBannerGradient } from '@/lib/image-utils'
 
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/authStore'
@@ -16,6 +18,7 @@ interface ProfileData {
   username: string
   full_name: string
   avatar_url: string
+  cover_url: string
   bio: string
   website: string
 }
@@ -51,10 +54,13 @@ export default function SettingsPage() {
     username: '',
     full_name: '',
     avatar_url: '',
+    cover_url: '',
     bio: '',
     website: ''
   })
   const [saving, setSaving] = useState(false)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [uploadingCover, setUploadingCover] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [showEmojiModal, setShowEmojiModal] = useState(false)
@@ -65,6 +71,7 @@ export default function SettingsPage() {
         username: currentProfile.username || '',
         full_name: currentProfile.full_name || '',
         avatar_url: currentProfile.avatar_url || '',
+        cover_url: (currentProfile as any).cover_url || '',
         bio: (currentProfile as any).bio || '',
         website: (currentProfile as any).website || ''
       })
@@ -84,6 +91,7 @@ export default function SettingsPage() {
       .update({
         full_name: profile.full_name,
         avatar_url: profile.avatar_url,
+        cover_url: profile.cover_url,
         bio: profile.bio,
         website: profile.website,
         updated_at: new Date().toISOString()
@@ -97,6 +105,56 @@ export default function SettingsPage() {
       await loadProfile()
     }
     setSaving(false)
+  }
+
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>, type: 'avatar' | 'cover') {
+    const file = e.target.files?.[0]
+    if (!file || !user) return
+
+    // Limit to 512KB for initial upload to be safe
+    if (file.size > 512 * 1024) {
+      setError('File too large. Max 512KB.')
+      return
+    }
+
+    if (type === 'avatar') setUploadingAvatar(true)
+    else setUploadingCover(true)
+    
+    setError('')
+
+    try {
+      // 1. COMPRESS: Resize and convert to WebP (~96KB targeted)
+      // Avatar: 400px, Cover: 1000px, Quality: 0.6
+      const compressedBlob = await compressImage(file, type === 'avatar' ? 400 : 1000, 0.6)
+      
+      // 2. UPLOAD: Save to Supabase Storage
+      const bucket = type === 'avatar' ? 'avatars' : 'covers'
+      const fileName = `${user.id}/${Date.now()}.webp`
+      
+      const { error: uploadError } = await supabase.storage
+        .from(bucket)
+        .upload(fileName, compressedBlob, {
+          contentType: 'image/webp',
+          upsert: true
+        })
+
+      if (uploadError) throw uploadError
+
+      // 3. GET URL: Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from(bucket)
+        .getPublicUrl(fileName)
+
+      // 4. UPDATE STATE: Store internal state
+      setProfile(p => ({ ...p, [type === 'avatar' ? 'avatar_url' : 'cover_url']: publicUrl }))
+      setSuccess(`${type === 'avatar' ? 'Avatar' : 'Cover'} uploaded! (${(compressedBlob.size / 1024).toFixed(0)}KB)`)
+      
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      if (type === 'avatar') setUploadingAvatar(false)
+      else setUploadingCover(false)
+    }
   }
 
   const selectEmoji = (emoji: string) => {
@@ -120,32 +178,87 @@ export default function SettingsPage() {
             <h1 className="font-bold text-lg">Edit Profile</h1>
           </div>
 
-          <form onSubmit={handleSave} className="p-4 space-y-6 pb-48">
-            <div className="flex flex-col items-center gap-4 py-6">
-              <button 
-                type="button"
-                onClick={() => setShowEmojiModal(true)}
-                className="group relative"
-              >
-                <Avatar 
-                  url={profile.avatar_url} 
-                  username={profile.username} 
-                  size="xl" 
-                  className="ring-4 ring-orange-50 group-hover:scale-105 transition-transform"
-                />
-                <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                  <span className="text-white text-xs font-bold">Change</span>
+          <form onSubmit={handleSave} className="p-0 space-y-6 pb-48">
+            {/* Header / Banner Area */}
+            <div className="relative h-48 bg-gray-100 group">
+              {profile.cover_url ? (
+                <img src={profile.cover_url} alt="Cover" className="w-full h-full object-cover" />
+              ) : (
+                <div className={`w-full h-full bg-gradient-to-r ${getBannerGradient(user?.id || '')}`} />
+              )}
+              
+              <label className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                <div className="bg-white/90 p-3 rounded-full shadow-lg">
+                  <Camera className="w-6 h-6 text-gray-700" />
                 </div>
-              </button>
-              <p className="text-xs text-gray-500">Click to change emoji</p>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  className="hidden" 
+                  onChange={(e) => handleImageUpload(e, 'cover')}
+                  disabled={uploadingCover}
+                />
+              </label>
+              
+              {uploadingCover && (
+                <div className="absolute inset-0 bg-white/60 flex items-center justify-center">
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="spinner border-primary/20 border-t-primary w-8 h-8" />
+                    <span className="text-xs font-bold text-primary">Compressing...</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Avatar Positioned Overlay */}
+              <div className="absolute -bottom-14 left-6 group/avatar">
+                <div className="relative">
+                   <div className="bg-white p-1 rounded-full shadow-lg ring-4 ring-white">
+                     <Avatar 
+                      url={profile.avatar_url} 
+                      username={profile.username} 
+                      size="xl" 
+                      className="ring-0"
+                    />
+                  </div>
+                  <label className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover/avatar:opacity-100 transition-opacity cursor-pointer">
+                    <Camera className="w-6 h-6 text-white" />
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={(e) => handleImageUpload(e, 'avatar')}
+                      disabled={uploadingAvatar}
+                    />
+                  </label>
+                </div>
+              </div>
             </div>
 
+            <div className="pt-20 px-6 space-y-8">
+              <div className="flex items-center justify-end">
+                 <button 
+                  type="button"
+                  onClick={() => setShowEmojiModal(true)}
+                  className="text-xs font-bold text-primary hover:bg-orange-50 px-3 py-1.5 rounded-full border border-orange-100 transition-colors"
+                >
+                  Use Emoji instead?
+                </button>
+              </div>
+
             {error && (
-              <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg">{error}</div>
+              <div className="mx-6 p-3 bg-red-50 text-red-600 text-sm rounded-xl border border-red-100 flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse"></div>
+                {error}
+              </div>
             )}
             {success && (
-              <div className="p-3 bg-green-50 text-green-600 text-sm rounded-lg">{success}</div>
+              <div className="mx-6 p-3 bg-green-50 text-green-600 text-sm rounded-xl border border-green-100 flex items-center gap-2">
+                 <div className="w-1.5 h-1.5 rounded-full bg-green-600"></div>
+                {success}
+              </div>
             )}
+
+            <div className="px-6 space-y-6">
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -206,12 +319,14 @@ export default function SettingsPage() {
 
             <button
               type="submit"
-              disabled={saving}
-              className="w-full bg-primary text-white py-3 rounded-xl font-bold hover:bg-primary-hover disabled:opacity-50 flex items-center justify-center gap-2 transition-colors"
+              disabled={saving || uploadingAvatar || uploadingCover}
+              className="w-full bg-primary text-white py-4 rounded-xl font-bold hover:bg-primary-hover disabled:opacity-50 flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-lg shadow-orange-100"
             >
               <Save className="w-5 h-5" />
               {saving ? 'Saving...' : 'Save Changes'}
             </button>
+          </div>
+        </div>
 
             <div className="pt-6 border-t border-gray-100 space-y-3">
               <Link

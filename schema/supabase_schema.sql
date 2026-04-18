@@ -255,87 +255,141 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- COUNTER HANDLERS
-CREATE OR REPLACE FUNCTION public.handle_counters()
+-- =========================================================================
+-- TRIGGER CLEANUP (Aggressive: Drop all triggers before recreating)
+-- =========================================================================
+DO $$ 
+DECLARE 
+    tr RECORD;
+BEGIN
+    -- Drop all relevant triggers to ensure a clean state
+    FOR tr IN (SELECT trigger_name, event_object_table FROM information_schema.triggers WHERE event_object_schema = 'public') 
+    LOOP
+        EXECUTE 'DROP TRIGGER IF EXISTS ' || quote_ident(tr.trigger_name) || ' ON public.' || quote_ident(tr.event_object_table);
+    END LOOP;
+END $$;
+
+-- 1. Like Counter
+CREATE OR REPLACE FUNCTION public.handle_like_counter()
 RETURNS TRIGGER AS $$
 BEGIN
-  IF TG_TABLE_NAME = 'post_likes' THEN
-    IF TG_OP = 'INSERT' THEN
-      UPDATE public.posts SET likes_count = likes_count + 1 WHERE id = NEW.post_id;
-    ELSIF TG_OP = 'DELETE' THEN
-      UPDATE public.posts SET likes_count = GREATEST(likes_count - 1, 0) WHERE id = OLD.post_id;
-    END IF;
-  ELSIF TG_TABLE_NAME = 'comments' THEN
-    IF TG_OP = 'INSERT' THEN
-      UPDATE public.posts SET comments_count = (SELECT count(*) FROM public.comments WHERE post_id = NEW.post_id AND is_deleted = false) WHERE id = NEW.post_id;
-    ELSIF TG_OP = 'DELETE' THEN
-      UPDATE public.posts SET comments_count = (SELECT count(*) FROM public.comments WHERE post_id = OLD.post_id AND is_deleted = false) WHERE id = OLD.post_id;
-    END IF;
-  ELSIF TG_TABLE_NAME = 'reposts' THEN
-    IF TG_OP = 'INSERT' THEN
-      UPDATE public.posts SET shares_count = shares_count + 1 WHERE id = NEW.original_post_id;
-    ELSIF TG_OP = 'DELETE' THEN
-      UPDATE public.posts SET shares_count = GREATEST(shares_count - 1, 0) WHERE id = OLD.original_post_id;
-    END IF;
+  IF TG_OP = 'INSERT' THEN
+    UPDATE public.posts SET likes_count = likes_count + 1 WHERE id = NEW.post_id;
+  ELSIF TG_OP = 'DELETE' THEN
+    UPDATE public.posts SET likes_count = GREATEST(likes_count - 1, 0) WHERE id = OLD.post_id;
   END IF;
   RETURN NULL;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- 2. Comment Counter
+CREATE OR REPLACE FUNCTION public.handle_comment_counter()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    UPDATE public.posts SET comments_count = (SELECT count(*) FROM public.comments WHERE post_id = NEW.post_id AND is_deleted = false) WHERE id = NEW.post_id;
+  ELSIF TG_OP = 'DELETE' THEN
+    UPDATE public.posts SET comments_count = (SELECT count(*) FROM public.comments WHERE post_id = OLD.post_id AND is_deleted = false) WHERE id = OLD.post_id;
+  END IF;
+  RETURN NULL;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 3. Repost Counter
+CREATE OR REPLACE FUNCTION public.handle_repost_counter()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    UPDATE public.posts SET shares_count = shares_count + 1 WHERE id = NEW.original_post_id;
+  ELSIF TG_OP = 'DELETE' THEN
+    UPDATE public.posts SET shares_count = GREATEST(shares_count - 1, 0) WHERE id = OLD.original_post_id;
+  END IF;
+  RETURN NULL;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- RECREATE COUNTER TRIGGERS
 DROP TRIGGER IF EXISTS tr_update_likes ON public.post_likes;
-CREATE TRIGGER tr_update_likes AFTER INSERT OR DELETE ON public.post_likes FOR EACH ROW EXECUTE FUNCTION public.handle_counters();
+CREATE TRIGGER tr_update_likes AFTER INSERT OR DELETE ON public.post_likes FOR EACH ROW EXECUTE FUNCTION handle_like_counter();
 
 DROP TRIGGER IF EXISTS tr_update_comments ON public.comments;
-CREATE TRIGGER tr_update_comments AFTER INSERT OR DELETE ON public.comments FOR EACH ROW EXECUTE FUNCTION public.handle_counters();
+CREATE TRIGGER tr_update_comments AFTER INSERT OR DELETE ON public.comments FOR EACH ROW EXECUTE FUNCTION handle_comment_counter();
 
 DROP TRIGGER IF EXISTS tr_update_reposts ON public.reposts;
-CREATE TRIGGER tr_update_reposts AFTER INSERT OR DELETE ON public.reposts FOR EACH ROW EXECUTE FUNCTION public.handle_counters();
+CREATE TRIGGER tr_update_reposts AFTER INSERT OR DELETE ON public.reposts FOR EACH ROW EXECUTE FUNCTION handle_repost_counter();
 
 -- NOTIFICATIONS HANDLER
-CREATE OR REPLACE FUNCTION public.handler_create_notification()
+-- NOTIFICATIONS HANDLERS (Specific per table to avoid "field not found" errors)
+
+-- 1. Like Notification
+CREATE OR REPLACE FUNCTION public.handler_notify_like()
 RETURNS TRIGGER AS $$
 DECLARE
   target_user_id UUID;
 BEGIN
-  IF TG_TABLE_NAME = 'post_likes' THEN
-    SELECT user_id INTO target_user_id FROM public.posts WHERE id = NEW.post_id;
-    IF target_user_id != NEW.user_id THEN
-      INSERT INTO public.notifications (user_id, type, from_user_id, post_id)
-      VALUES (target_user_id, 'like', NEW.user_id, NEW.post_id) ON CONFLICT DO NOTHING;
-    END IF;
-  ELSIF TG_TABLE_NAME = 'follows' THEN
-    IF NEW.following_id != NEW.follower_id THEN
-      INSERT INTO public.notifications (user_id, type, from_user_id)
-      VALUES (NEW.following_id, 'follow', NEW.follower_id) ON CONFLICT DO NOTHING;
-    END IF;
-  ELSIF TG_TABLE_NAME = 'reposts' THEN
-    SELECT user_id INTO target_user_id FROM public.posts WHERE id = NEW.original_post_id;
-    IF target_user_id != NEW.user_id THEN
-      INSERT INTO public.notifications (user_id, type, from_user_id, post_id)
-      VALUES (target_user_id, 'repost', NEW.user_id, NEW.original_post_id) ON CONFLICT DO NOTHING;
-    END IF;
-  ELSIF TG_TABLE_NAME = 'comments' THEN
-    SELECT user_id INTO target_user_id FROM public.posts WHERE id = NEW.post_id;
-    IF target_user_id != NEW.user_id THEN
-      INSERT INTO public.notifications (user_id, type, from_user_id, post_id, comment_id)
-      VALUES (target_user_id, 'comment', NEW.user_id, NEW.post_id, NEW.id) ON CONFLICT DO NOTHING;
-    END IF;
+  SELECT user_id INTO target_user_id FROM public.posts WHERE id = NEW.post_id;
+  IF target_user_id != NEW.user_id THEN
+    INSERT INTO public.notifications (user_id, type, from_user_id, post_id)
+    VALUES (target_user_id, 'like', NEW.user_id, NEW.post_id) ON CONFLICT DO NOTHING;
   END IF;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- 2. Follow Notification
+CREATE OR REPLACE FUNCTION public.handler_notify_follow()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.following_id != NEW.follower_id THEN
+    INSERT INTO public.notifications (user_id, type, from_user_id)
+    VALUES (NEW.following_id, 'follow', NEW.follower_id) ON CONFLICT DO NOTHING;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 3. Repost Notification
+CREATE OR REPLACE FUNCTION public.handler_notify_repost()
+RETURNS TRIGGER AS $$
+DECLARE
+  target_user_id UUID;
+BEGIN
+  SELECT user_id INTO target_user_id FROM public.posts WHERE id = NEW.original_post_id;
+  IF target_user_id != NEW.user_id THEN
+    INSERT INTO public.notifications (user_id, type, from_user_id, post_id)
+    VALUES (target_user_id, 'repost', NEW.user_id, NEW.original_post_id) ON CONFLICT DO NOTHING;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 4. Comment Notification
+CREATE OR REPLACE FUNCTION public.handler_notify_comment()
+RETURNS TRIGGER AS $$
+DECLARE
+  target_user_id UUID;
+BEGIN
+  SELECT user_id INTO target_user_id FROM public.posts WHERE id = NEW.post_id;
+  IF target_user_id != NEW.user_id THEN
+    INSERT INTO public.notifications (user_id, type, from_user_id, post_id, comment_id)
+    VALUES (target_user_id, 'comment', NEW.user_id, NEW.post_id, NEW.id) ON CONFLICT DO NOTHING;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- RECREATE TRIGGERS
 DROP TRIGGER IF EXISTS tr_notify_like ON public.post_likes;
-CREATE TRIGGER tr_notify_like AFTER INSERT ON public.post_likes FOR EACH ROW EXECUTE FUNCTION handler_create_notification();
+CREATE TRIGGER tr_notify_like AFTER INSERT ON public.post_likes FOR EACH ROW EXECUTE FUNCTION handler_notify_like();
 
 DROP TRIGGER IF EXISTS tr_notify_follow ON public.follows;
-CREATE TRIGGER tr_notify_follow AFTER INSERT ON public.follows FOR EACH ROW EXECUTE FUNCTION handler_create_notification();
+CREATE TRIGGER tr_notify_follow AFTER INSERT ON public.follows FOR EACH ROW EXECUTE FUNCTION handler_notify_follow();
 
 DROP TRIGGER IF EXISTS tr_notify_repost ON public.reposts;
-CREATE TRIGGER tr_notify_repost AFTER INSERT ON public.reposts FOR EACH ROW EXECUTE FUNCTION handler_create_notification();
+CREATE TRIGGER tr_notify_repost AFTER INSERT ON public.reposts FOR EACH ROW EXECUTE FUNCTION handler_notify_repost();
 
 DROP TRIGGER IF EXISTS tr_notify_comment ON public.comments;
-CREATE TRIGGER tr_notify_comment AFTER INSERT ON public.comments FOR EACH ROW EXECUTE FUNCTION handler_create_notification();
+CREATE TRIGGER tr_notify_comment AFTER INSERT ON public.comments FOR EACH ROW EXECUTE FUNCTION handler_notify_comment();
 
 -- REALTIME CONFIGURATION
 DROP PUBLICATION IF EXISTS supabase_realtime;

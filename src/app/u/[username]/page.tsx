@@ -26,8 +26,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const displayName = profile.full_name || profile.username
   const description = profile.bio || `Check out ${displayName}'s profile on KeyYap.`
   
-  // Use profile avatar as OG Image, with a fallback if empty
-  const ogImage = profile.avatar_url || 'https://keyyap.com/og-default.png' 
+  // Check if avatar_url is a valid URL or an emoji
+  const isUrl = profile.avatar_url && profile.avatar_url.startsWith('http')
+  const ogImage = isUrl ? profile.avatar_url : 'https://raw.githubusercontent.com/dnysaz/keyyap-image/60b91a4783745207f6de32c73a2aa5b41ae1dc77/keyyap!%20(1).png'
 
   return {
     title: `${displayName} (@${profile.username}) | KeyYap`,

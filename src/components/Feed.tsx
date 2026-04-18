@@ -85,8 +85,12 @@ export default function Feed({ isGlobal = false }: FeedProps) {
         }
 
         if (currentUserId && !isGlobal) {
-          if (allowedIds.length > 0) {
+          if (followingIds.length > 0) {
+            // User follows people, show their posts + user's own posts
             query = query.in('user_id', allowedIds)
+          } else {
+            // User follows NO ONE: Show user's own posts OR official 'keyyap' posts
+            query = query.or(`user_id.eq.${currentUserId},profiles.username.eq.keyyap`)
           }
         }
 

@@ -26,8 +26,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const userObj = { id: session.user.id, email: session.user.email! }
           setUser(userObj)
           
-          // Smooth cleanup: Clear hash from URL after successful sign in
-          if (event === 'SIGNED_IN' && typeof window !== 'undefined' && window.location.hash) {
+          // Aggressive cleanup: Clear hash from URL whenever a valid session exists and hash is present
+          if (typeof window !== 'undefined' && window.location.hash && (window.location.hash.includes('access_token') || window.location.hash.includes('type=recovery'))) {
             window.history.replaceState(null, '', window.location.pathname + window.location.search);
           }
 

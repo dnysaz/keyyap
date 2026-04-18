@@ -64,6 +64,7 @@ export async function generateMetadata(): Promise<Metadata> {
       icon: 'https://raw.githubusercontent.com/dnysaz/keyyap-image/60b91a4783745207f6de32c73a2aa5b41ae1dc77/keyyap!%20(1).png',
       apple: 'https://raw.githubusercontent.com/dnysaz/keyyap-image/60b91a4783745207f6de32c73a2aa5b41ae1dc77/keyyap!%20(1).png',
     },
+    metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://keyyap.com'),
   };
 }
 
@@ -82,8 +83,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${poppins.variable} ${pacifico.variable}`}>
-      <body className="min-h-screen bg-white text-gray-900 font-sans">
+    <html lang="en" className={`${inter.variable} ${poppins.variable} ${pacifico.variable}`} suppressHydrationWarning>
+      <body className="min-h-screen bg-white text-gray-900 font-sans" suppressHydrationWarning>
         <div className="bg-white border-b border-gray-50">
           <div className="lg:ml-[72px] xl:ml-[260px] flex justify-center">
             <div className="w-full max-w-[1050px] flex items-start">

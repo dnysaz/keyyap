@@ -330,9 +330,8 @@ export default function PostCard({ post, currentUserId, onLikeChange, reposterUs
                       {expandedVideo === youtubeId ? (
                         <iframe
                           src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1`}
-                          className="w-full h-full"
-                          allow="autoplay; encrypted-media"
-                          allowFullScreen
+                          className="w-full h-full border-0"
+                          allow="autoplay; encrypted-media; fullscreen"
                         />
                       ) : (
                         <div 
@@ -387,11 +386,9 @@ export default function PostCard({ post, currentUserId, onLikeChange, reposterUs
                       src={`https://open.spotify.com/embed/${spotify.type}/${spotify.id}?utm_source=generator&theme=0`}
                       width="100%"
                       height={spotify.type === 'track' ? "80" : "152"}
-                      frameBorder="0"
-                      allowFullScreen
                       allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
                       loading="lazy"
-                      className="block"
+                      className="block border-0"
                     />
                   </div>
                 )
@@ -485,11 +482,9 @@ export default function PostCard({ post, currentUserId, onLikeChange, reposterUs
                             src={`https://open.spotify.com/embed/${spotify.type}/${spotify.id}?utm_source=generator&theme=0`}
                             width="100%"
                             height={spotify.type === 'track' ? "80" : "152"}
-                            frameBorder="0"
-                            allowFullScreen
                             allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
                             loading="lazy"
-                            className="block"
+                            className="block border-0"
                           />
                         </div>
                       )

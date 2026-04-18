@@ -234,7 +234,7 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <div className="pt-20 px-6 space-y-8">
+            <div className="pt-20 px-4 space-y-8">
               <div className="flex items-center justify-end">
                  <button 
                   type="button"
@@ -246,19 +246,19 @@ export default function SettingsPage() {
               </div>
 
             {error && (
-              <div className="mx-6 p-3 bg-red-50 text-red-600 text-sm rounded-xl border border-red-100 flex items-center gap-2">
+              <div className="p-3 bg-red-50 text-red-600 text-sm rounded-xl border border-red-100 flex items-center gap-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse"></div>
                 {error}
               </div>
             )}
             {success && (
-              <div className="mx-6 p-3 bg-green-50 text-green-600 text-sm rounded-xl border border-green-100 flex items-center gap-2">
+              <div className="p-3 bg-green-50 text-green-600 text-sm rounded-xl border border-green-100 flex items-center gap-2">
                  <div className="w-1.5 h-1.5 rounded-full bg-green-600"></div>
                 {success}
               </div>
             )}
 
-            <div className="px-6 space-y-6">
+            <div className="space-y-6">
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -384,6 +384,23 @@ export default function SettingsPage() {
               </button>
             </div>
           </form>
+
+          {/* Settings Footer */}
+          <div className="px-6 pt-12 pb-32 flex flex-col items-center border-t border-gray-50 bg-gray-50/30">
+            <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 mb-4 text-[12px] font-medium text-gray-500">
+              <Link href="/terms" className="hover:text-primary transition-colors">Terms</Link>
+              <Link href="/privacy" className="hover:text-primary transition-colors">Privacy Policy</Link>
+              <Link href="/cookies" className="hover:text-primary transition-colors">Cookie Policy</Link>
+            </div>
+            
+            <div className="flex flex-col items-center gap-1">
+              <p className="text-[11px] text-gray-400 font-medium">© {new Date().getFullYear()} KeyYap! Inc.</p>
+              <div className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-[11px] font-bold text-gray-500">Version 1.0 (Beta)</span>
+              </div>
+            </div>
+          </div>
           </div>
           <RightSidebar />
         </div>

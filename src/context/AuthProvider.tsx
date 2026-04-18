@@ -26,6 +26,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const userObj = { id: session.user.id, email: session.user.email! }
           setUser(userObj)
           
+          // Smooth cleanup: Clear hash from URL after successful sign in
+          if (event === 'SIGNED_IN' && typeof window !== 'undefined' && window.location.hash) {
+            window.history.replaceState(null, '', window.location.pathname + window.location.search);
+          }
+
           // CRITICAL: Set loading false now, don't wait for profile.
           // This allows the Feed and other components to start their work immediately.
           useAuthStore.setState({ loading: false });

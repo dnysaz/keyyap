@@ -1,26 +1,24 @@
 -- =========================================================================
--- KeyYap.com - SOCIAL AUTH & AUTOMATED PROFILES SCHEMA
+-- KeyYap.com - SOCIAL AUTH & AUTO-FOLLOW SCHEMA v2
 -- =========================================================================
--- This script handles automated profile creation when a user signs up 
--- via Google or Email. It generates a unique, compact username.
+-- This script handles automated profile creation and AUTO-FOLLOWS 
+-- the official @keyyap account for every new user.
 -- =========================================================================
 
 -- 1. FUNCTION: handle_new_user
--- Generates a username: 5 chars from email + "_" + 3 random chars
+-- Generates username AND auto-follows @keyyap
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 DECLARE
   base_username TEXT;
   final_username TEXT;
+  keyyap_id UUID;
 BEGIN
-  -- Extract up to 5 chars from email prefix, force lowercase
+  -- 1. Generate Username: Extract up to 5 chars from email prefix, force lowercase
   base_username := lower(substring(split_part(new.email, '@', 1) from 1 for 5));
-  
-  -- Append underscore and 3 random hex characters
   final_username := base_username || '_' || substr(md5(random()::text), 1, 3);
 
-  -- Insert into public.profiles
-  -- Using ON CONFLICT to prevent errors if by any chance the UID exists
+  -- 2. Create the profile
   INSERT INTO public.profiles (id, username, full_name, avatar_url)
   VALUES (
     new.id,
@@ -30,19 +28,28 @@ BEGIN
   )
   ON CONFLICT (id) DO NOTHING;
 
+  -- 3. AUTO-FOLLOW official @keyyap account
+  -- Find the UUID of @keyyap
+  SELECT id INTO keyyap_id FROM public.profiles WHERE username = 'keyyap' LIMIT 1;
+  
+  -- If official account found and it's not the user themselves
+  IF keyyap_id IS NOT NULL AND keyyap_id != new.id THEN
+    INSERT INTO public.follows (follower_id, following_id)
+    VALUES (new.id, keyyap_id)
+    ON CONFLICT DO NOTHING;
+  END IF;
+
   RETURN new;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- 2. TRIGGER: on_auth_user_created
--- Fires automatically whenever a record is added to auth.users
 DROP TRIGGER IF EXISTS tr_on_auth_user_created ON auth.users;
 CREATE TRIGGER tr_on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 -- =========================================================================
--- NOTE: 
--- 1. Ensure 'profiles' table exists before running this.
--- 2. This handles both Email Signup and Google OAuth.
+-- NOTE:
+-- After running this, new users will automatically follow @keyyap.
 -- =========================================================================

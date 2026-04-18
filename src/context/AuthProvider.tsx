@@ -23,7 +23,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
         if (session?.user) {
-          const userObj = { id: session.user.id, email: session.user.email! }
+          const userObj = { 
+            id: session.user.id, 
+            email: session.user.email!,
+            provider: session.user.app_metadata.provider
+          }
           setUser(userObj)
           
           // Aggressive cleanup: Clear hash from URL whenever a valid session exists and hash is present
@@ -73,6 +77,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearTimeout(timer)
     }
   }, [setUser, setProfile])
+
+  // EXTRA AGGRESSIVE URL CLEANUP
+  // This ensures hash tokens are removed even if the router tries to preserve them
+  useEffect(() => {
+    const cleanupUrl = () => {
+      if (typeof window !== 'undefined' && window.location.hash && 
+         (window.location.hash.includes('access_token') || window.location.hash.includes('type=recovery'))) {
+        
+        // Use a small delay to ensure Next.js router has finished its internal work
+        setTimeout(() => {
+          // Double check if hash still exists before clearing
+          if (window.location.hash.includes('access_token') || window.location.hash.includes('type=recovery')) {
+            console.log('🧹 Cleaning up sensitive URL hash...');
+            window.history.replaceState(null, '', window.location.pathname + window.location.search);
+          }
+        }, 100);
+      }
+    };
+
+    cleanupUrl();
+  }, []);
 
   return <>{children}</>
 }

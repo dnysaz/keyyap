@@ -10,6 +10,7 @@ import RightSidebar from '@/components/RightSidebar'
 import Avatar from '@/components/Avatar'
 import { Camera, Image as ImageIcon } from 'lucide-react'
 import { compressImage, getBannerGradient } from '@/lib/image-utils'
+import ImageCropperModal from '@/components/ImageCropperModal'
 
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/authStore'
@@ -64,6 +65,11 @@ export default function SettingsPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [showEmojiModal, setShowEmojiModal] = useState(false)
+  const [cropConfig, setCropConfig] = useState<{
+    isOpen: boolean
+    imageSrc: string
+    type: 'avatar' | 'cover'
+  } | null>(null)
 
   useEffect(() => {
     if (currentProfile) {
@@ -107,15 +113,27 @@ export default function SettingsPage() {
     setSaving(false)
   }
 
-  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>, type: 'avatar' | 'cover') {
-    const file = e.target.files?.[0]
-    if (!file || !user) return
-
-    // Limit to 512KB for initial upload to be safe
-    if (file.size > 512 * 1024) {
-      setError('File too large. Max 512KB.')
-      return
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>, type: 'avatar' | 'cover') => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0]
+      const reader = new FileReader()
+      reader.addEventListener('load', () => {
+        setCropConfig({
+          isOpen: true,
+          imageSrc: reader.result?.toString() || '',
+          type
+        })
+      })
+      reader.readAsDataURL(file)
+      // reset input
+      e.target.value = ''
     }
+  }
+
+  const handleCropComplete = async (croppedBlob: Blob) => {
+    if (!cropConfig || !user) return
+    const type = cropConfig.type
+    setCropConfig(null)
 
     if (type === 'avatar') setUploadingAvatar(true)
     else setUploadingCover(true)
@@ -123,11 +141,9 @@ export default function SettingsPage() {
     setError('')
 
     try {
-      // 1. COMPRESS: Resize and convert to WebP (~96KB targeted)
-      // Avatar: 400px, Cover: 1000px, Quality: 0.6
+      const file = new File([croppedBlob], `cropped-${Date.now()}.jpeg`, { type: 'image/jpeg' })
       const compressedBlob = await compressImage(file, type === 'avatar' ? 400 : 1000, 0.6)
       
-      // 2. UPLOAD: Save to Supabase Storage
       const bucket = type === 'avatar' ? 'avatars' : 'covers'
       const fileName = `${user.id}/${Date.now()}.webp`
       
@@ -140,12 +156,10 @@ export default function SettingsPage() {
 
       if (uploadError) throw uploadError
 
-      // 3. GET URL: Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from(bucket)
         .getPublicUrl(fileName)
 
-      // 4. UPDATE STATE: Store internal state
       setProfile(p => ({ ...p, [type === 'avatar' ? 'avatar_url' : 'cover_url']: publicUrl }))
       setSuccess(`${type === 'avatar' ? 'Avatar' : 'Cover'} uploaded! (${(compressedBlob.size / 1024).toFixed(0)}KB)`)
       
@@ -195,7 +209,7 @@ export default function SettingsPage() {
                   type="file" 
                   accept="image/*" 
                   className="hidden" 
-                  onChange={(e) => handleImageUpload(e, 'cover')}
+                  onChange={(e) => handleImageSelect(e, 'cover')}
                   disabled={uploadingCover}
                 />
               </label>
@@ -226,7 +240,7 @@ export default function SettingsPage() {
                       type="file" 
                       accept="image/*" 
                       className="hidden" 
-                      onChange={(e) => handleImageUpload(e, 'avatar')}
+                      onChange={(e) => handleImageSelect(e, 'avatar')}
                       disabled={uploadingAvatar}
                     />
                   </label>
@@ -449,6 +463,16 @@ export default function SettingsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {cropConfig?.isOpen && (
+        <ImageCropperModal
+          imageSrc={cropConfig.imageSrc}
+          aspectRatio={cropConfig.type === 'avatar' ? 1 : 3}
+          isCircle={cropConfig.type === 'avatar'}
+          onCropComplete={handleCropComplete}
+          onCancel={() => setCropConfig(null)}
+        />
       )}
 
       <div className="lg:hidden">

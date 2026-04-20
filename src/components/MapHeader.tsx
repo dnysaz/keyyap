@@ -59,14 +59,14 @@ export default function MapHeader({ lat, lng, locationName }: MapHeaderProps) {
         onLoad={initMap}
       />
       
-      <div className="relative w-full h-[300px] border-b border-gray-100 bg-gray-50 overflow-hidden">
+      <div className="relative w-full h-[300px] border-b border-gray-100 bg-gray-50 overflow-hidden max-w-full">
         <div ref={mapRef} className="w-full h-full z-0" />
         
         {/* Overlay info */}
-        <div className="absolute bottom-4 left-4 right-4 z-10">
-          <div className="bg-white/90 backdrop-blur-md p-3 px-4 rounded-2xl shadow-xl inline-flex items-center gap-2 border border-white/50 animate-in slide-in-from-bottom-2 duration-500">
-            <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-            <span className="text-sm font-bold text-gray-900 truncate max-w-[250px]">{locationName}</span>
+        <div className="absolute bottom-4 left-4 right-4 z-10 overflow-hidden">
+          <div className="bg-white/90 backdrop-blur-md p-3 px-4 rounded-2xl shadow-xl flex items-start gap-2 border border-white/50 animate-in slide-in-from-bottom-2 duration-500 max-w-full">
+            <div className="w-2 h-2 rounded-full bg-primary animate-pulse mt-1.5 shrink-0" />
+            <span className="text-sm font-bold text-gray-900 break-words whitespace-normal min-w-0">{locationName}</span>
           </div>
         </div>
       </div>

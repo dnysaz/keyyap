@@ -28,6 +28,16 @@ export default function Feed({ isGlobal = false }: FeedProps) {
   const [newPostsCount, setNewPostsCount] = useState(0)
   const [initialLoaded, setInitialLoaded] = useState(false)
 
+  // Refs to avoid stale closures in scroll handler
+  const pageRef = useRef(0)
+  const loadingRef = useRef(false)
+  const hasMoreRef = useRef(true)
+
+  // Keep refs in sync with state
+  useEffect(() => { pageRef.current = page }, [page])
+  useEffect(() => { loadingRef.current = loading }, [loading])
+  useEffect(() => { hasMoreRef.current = hasMore }, [hasMore])
+
   // Filter unique posts and apply guest limit if needed
   const uniquePosts = posts.filter((post, index, self) => index === self.findIndex(p => p.id === post.id))
   // CACHE LOGIC: If we have posts from a previous session, we'll show them immediately
@@ -36,6 +46,8 @@ export default function Feed({ isGlobal = false }: FeedProps) {
   const fetchPosts = useCallback(async (pageNum: number = 0, append: boolean = false) => {
     // Only show loading if we have NO posts in cache
     if (!append && posts.length === 0) setLoading(true)
+    setLoading(true)
+    loadingRef.current = true
 
     const limit = 15
     const offset = pageNum * limit
@@ -116,11 +128,13 @@ export default function Feed({ isGlobal = false }: FeedProps) {
         setPosts(finalPosts)
       }
       setHasMore((finalPosts?.length || 0) === limit)
+      hasMoreRef.current = (finalPosts?.length || 0) === limit
     } catch (err) {
       console.error('Feed fetch error:', err)
     } finally {
       clearTimeout(timeoutId)
       setLoading(false)
+      loadingRef.current = false
     }
   }, [posts, setPosts, isGlobal, user])
 
@@ -142,6 +156,7 @@ export default function Feed({ isGlobal = false }: FeedProps) {
   useEffect(() => {
     if (initialLoaded) {
       setPage(0)
+      pageRef.current = 0
       fetchPosts(0)
     }
   }, [activeTab])
@@ -157,24 +172,29 @@ export default function Feed({ isGlobal = false }: FeedProps) {
     return () => { supabase.removeChannel(channel) }
   }, [])
 
-  const loadMore = () => {
-    if (!loading && hasMore) {
-      const nextPage = page + 1
+  const loadMore = useCallback(() => {
+    if (!loadingRef.current && hasMoreRef.current) {
+      const nextPage = pageRef.current + 1
       setPage(nextPage)
+      pageRef.current = nextPage
       fetchPosts(nextPage, true)
     }
-  }
+  }, [fetchPosts])
 
   useEffect(() => {
     const handleScroll = () => {
       if (!user) return
-      if (window.innerHeight + document.documentElement.scrollTop >= document.documentElement.offsetHeight - 800 && hasMore && !loading) {
+      if (
+        window.innerHeight + document.documentElement.scrollTop >= document.documentElement.offsetHeight - 800 &&
+        hasMoreRef.current &&
+        !loadingRef.current
+      ) {
         loadMore()
       }
     }
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
-  }, [hasMore, loading, page, user])
+  }, [user, loadMore])
 
   // Improved loading state: Only show skeleton if we truly have nothing to show yet
   const showSkeleton = authLoading || (loading && displayPosts.length === 0)

@@ -447,7 +447,7 @@ export default function SearchPage() {
         <Sidebar />
         <div className="lg:ml-[68px] xl:ml-[275px] flex justify-center">
           <div className="flex w-full max-w-[1050px] items-start">
-            <main className="flex-1 max-w-2xl border-x border-gray-100 min-h-screen overflow-x-hidden">
+            <main className="flex-1 max-w-2xl border-x border-gray-100 min-h-screen overflow-x-clip">
               <Suspense fallback={<FeedSkeleton count={3} />}>
                 <SearchContent />
               </Suspense>

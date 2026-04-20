@@ -85,9 +85,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           window.location.hash.includes('type=recovery') || 
           window.location.hash.includes('error_description')) {
         
-        // Remove the hash immediately from the URL without triggering a reload
-        const newUrl = window.location.pathname + window.location.search;
-        window.history.replaceState(null, '', newUrl);
+        // Give Supabase a small window to read the hash before we wipe it
+        const timer = setTimeout(() => {
+          const newUrl = window.location.pathname + window.location.search;
+          window.history.replaceState(null, '', newUrl);
+        }, 500); // 500ms is safer for all network conditions
       }
     }
   }, []);

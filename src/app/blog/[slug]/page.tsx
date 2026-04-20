@@ -98,11 +98,14 @@ export default function BlogDetailPage() {
     if (!content) return null
     
     if (isRichText) {
-      // For blog content which is now HTML from Rich Editor
+      // Auto-link plain text URLs in the HTML content safely
+      const autoLinked = content
+        .replace(/(?<!href=")(https?:\/\/[^\s<>"]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+
       return (
         <div 
           className="prose prose-orange max-w-none prose-p:leading-relaxed prose-pre:bg-gray-900 prose-pre:text-white prose-img:rounded-2xl"
-          dangerouslySetInnerHTML={{ __html: content }} 
+          dangerouslySetInnerHTML={{ __html: autoLinked }} 
         />
       )
     }
@@ -199,22 +202,46 @@ export default function BlogDetailPage() {
 
               <style jsx global>{`
                 .blog-content a {
-                  color: #f97316; /* Orange 500 */
-                  font-weight: 700;
-                  text-decoration: none;
-                  display: inline-block;
-                  max-width: 100%;
-                  overflow: hidden;
-                  text-overflow: ellipsis;
-                  vertical-align: bottom;
-                  white-space: nowrap;
-                  transition: color 0.2s;
+                  color: #f97316 !important;
+                  font-weight: 800 !important;
+                  text-decoration: none !important;
+                  transition: all 0.2s;
                 }
                 .blog-content a:hover {
-                  text-decoration: underline;
-                  color: #ea580c; /* Orange 600 */
+                  text-decoration: underline !important;
+                  opacity: 0.8;
                 }
               `}</style>
+
+              {/* Integrated Visual Link Previews */}
+              {(() => {
+                const cleanText = blog.content.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ');
+                const urls = cleanText.match(/https?:\/\/[^\s<>"]+/g);
+                if (urls && urls.length > 0) {
+                  return (
+                    <div className="mt-12 space-y-4 border-t border-gray-50 pt-8">
+                      {Array.from(new Set(urls)).map((url: any, idx) => (
+                        <a 
+                          key={idx}
+                          href={url}
+                          target="_blank"
+                          className="flex items-center gap-4 p-4 bg-gray-50/50 hover:bg-orange-50/30 rounded-2xl border border-gray-100 transition-all group"
+                        >
+                          <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center text-gray-300 group-hover:text-orange-500 transition-colors">
+                            <LinkIcon className="w-6 h-6" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[14px] font-bold text-gray-900 truncate">{url}</p>
+                            <p className="text-[11px] text-gray-400 font-medium">Click to visit external link</p>
+                          </div>
+                          <ExternalLink className="w-4 h-4 text-gray-300 group-hover:text-orange-500" />
+                        </a>
+                      ))}
+                    </div>
+                  );
+                }
+                return null;
+              })()}
             </article>
 
             {/* Comments Section */}

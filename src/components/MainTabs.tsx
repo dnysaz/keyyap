@@ -9,6 +9,7 @@ export default function MainTabs() {
     { href: '/', label: 'Home' },
     { href: '/global', label: 'Global' },
     { href: '/trending', label: 'Trending' },
+    { href: '/blog', label: 'Blog' },
   ]
 
   return (

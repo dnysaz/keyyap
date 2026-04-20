@@ -20,10 +20,10 @@ export default function BetaBanner() {
   if (dismissed) return null
 
   return (
-    <div className="bg-gray-50 border-b border-gray-100">
+    <div className="border-b border-gray-100">
       <div className="lg:ml-[72px] xl:ml-[260px] flex justify-center">
         <div className="w-full max-w-[1050px] flex items-start">
-          <div className="flex-1 max-w-2xl">
+          <div className="flex-1 max-w-2xl bg-gray-50/80">
             <div className="flex items-center justify-between px-4 py-2.5 gap-3">
               <div className="flex items-center gap-2.5 min-w-0">
                 <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />

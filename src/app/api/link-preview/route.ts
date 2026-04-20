@@ -36,7 +36,23 @@ async function safeFetch(url: string, userAgent: string) {
   return res
 }
 
+import { rateLimit, getClientIp } from '@/lib/rateLimit'
+
 export async function GET(request: NextRequest) {
+  const ip = getClientIp(request)
+  const limitCheck = rateLimit(ip, 30, 60 * 1000) // 30 requests per minute
+
+  if (limitCheck.limited) {
+    return new NextResponse('Too Many Requests. Please wait before trying again.', { 
+      status: 429,
+      headers: {
+        'Retry-After': Math.ceil(limitCheck.resetIn / 1000).toString(),
+        'X-RateLimit-Limit': '30',
+        'X-RateLimit-Remaining': limitCheck.remaining.toString(),
+      }
+    })
+  }
+
   const { searchParams } = new URL(request.url)
   const urlsParam = searchParams.get('urls')
 

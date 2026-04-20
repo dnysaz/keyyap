@@ -78,6 +78,7 @@ export const viewport: Viewport = {
 };
 
 import GlobalAuthGuard from "@/components/GlobalAuthGuard";
+import PwaInit from "@/components/PwaInit";
 
 export default function RootLayout({
   children,
@@ -87,6 +88,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${poppins.variable} ${pacifico.variable}`} suppressHydrationWarning>
       <body className="min-h-screen bg-white text-gray-900 font-sans" suppressHydrationWarning>
+        <PwaInit />
         <BetaBanner />
         <AuthProvider>
           <GlobalAuthGuard>

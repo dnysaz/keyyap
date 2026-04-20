@@ -299,16 +299,20 @@ export default function PostCard({ post, currentUserId, onLikeChange, reposterUs
               {(currentUserId === post.user_id) ? (
                 <button 
                   onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu) }} 
+                  aria-label="More options"
+                  aria-expanded={showMenu}
                   className="p-2 -mr-2 hover:bg-primary/10 hover:text-primary rounded-full transition-colors text-gray-400"
                 >
-                  <MoreVertical className="w-4 h-4" />
+                  <MoreVertical className="w-4 h-4" aria-hidden="true" />
                 </button>
               ) : (
                 <button 
                   onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu) }} 
+                  aria-label="More options"
+                  aria-expanded={showMenu}
                   className="p-2 -mr-2 hover:bg-primary/10 hover:text-primary rounded-full transition-colors opacity-0 group-hover:opacity-100 text-gray-400"
                 >
-                  <MoreVertical className="w-4 h-4" />
+                  <MoreVertical className="w-4 h-4" aria-hidden="true" />
                 </button>
               )}
               {showMenu && (
@@ -634,25 +638,25 @@ export default function PostCard({ post, currentUserId, onLikeChange, reposterUs
           {/* Engagement Buttons */}
           <div className="flex items-center justify-start gap-x-8 sm:gap-x-12 mt-4 text-gray-500">
             {/* Comment Button */}
-            <Link href={`/u/${post.profiles?.username}/${getSlug(post.id, post.content)}`} className="flex items-center gap-2 hover:text-sky-500 transition-colors group/comment">
+            <Link href={`/u/${post.profiles?.username}/${getSlug(post.id, post.content)}`} aria-label="Comment on post" className="flex items-center gap-2 hover:text-sky-500 transition-colors group/comment">
               <div className="p-2 -m-2 group-hover/comment:bg-sky-50 rounded-full transition-colors">
-                <MessageCircle className="w-5 h-5" />
+                <MessageCircle className="w-5 h-5" aria-hidden="true" />
               </div>
               <span className="text-[13px] font-medium">{post.comments_count}</span>
             </Link>
 
             {/* Repost Button */}
-            <button onClick={handleRepost} className={`flex items-center gap-2 transition-colors group/repost ${isReposted ? 'text-emerald-500' : 'hover:text-emerald-500'}`}>
+            <button onClick={handleRepost} aria-label={isReposted ? "Undo repost" : "Repost"} className={`flex items-center gap-2 transition-colors group/repost ${isReposted ? 'text-emerald-500' : 'hover:text-emerald-500'}`}>
               <div className={`p-2 -m-2 group-hover/repost:bg-emerald-50 rounded-full transition-colors ${isReposted ? 'bg-emerald-50' : ''}`}>
-                <Repeat className="w-5 h-5" />
+                <Repeat className="w-5 h-5" aria-hidden="true" />
               </div>
               <span className="text-[13px] font-medium">{repostCount}</span>
             </button>
 
             {/* Like Button */}
-            <button onClick={handleLike} className={`flex items-center gap-2 transition-colors group/like ${isLiked ? 'text-rose-500' : 'hover:text-rose-500'}`}>
+            <button onClick={handleLike} aria-label={isLiked ? "Unlike" : "Like"} className={`flex items-center gap-2 transition-colors group/like ${isLiked ? 'text-rose-500' : 'hover:text-rose-500'}`}>
               <div className={`p-2 -m-2 group-hover/like:bg-rose-50 rounded-full transition-colors ${isLiked ? 'bg-rose-50' : ''}`}>
-                <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
+                <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} aria-hidden="true" />
               </div>
               <span className="text-[13px] font-medium">{likesCount}</span>
             </button>

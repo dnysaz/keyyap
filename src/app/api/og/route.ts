@@ -30,7 +30,23 @@ function isPrivateUrl(urlString: string): boolean {
   }
 }
 
+import { rateLimit, getClientIp } from '@/lib/rateLimit'
+
 export async function GET(request: Request) {
+  const ip = getClientIp(request)
+  const limitCheck = rateLimit(ip, 30, 60 * 1000) // 30 requests per minute
+
+  if (limitCheck.limited) {
+    return new NextResponse('Too Many Requests. Please wait before trying again.', { 
+      status: 429,
+      headers: {
+        'Retry-After': Math.ceil(limitCheck.resetIn / 1000).toString(),
+        'X-RateLimit-Limit': '30',
+        'X-RateLimit-Remaining': limitCheck.remaining.toString(),
+      }
+    })
+  }
+
   const { searchParams } = new URL(request.url)
   const url = searchParams.get('url')
 

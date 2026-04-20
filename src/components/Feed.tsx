@@ -213,9 +213,13 @@ export default function Feed({ isGlobal = false }: FeedProps) {
         </div>
       )}
 
-      {loading && page > 0 && user && (
+      {loading && page > 0 && (
         <div className="py-12 flex justify-center">
-          <div className="spinner border-primary/20 border-t-primary w-6 h-6" />
+          <div className="jumping-dots">
+            <div className="dot"></div>
+            <div className="dot"></div>
+            <div className="dot"></div>
+          </div>
         </div>
       )}
 

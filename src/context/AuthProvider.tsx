@@ -12,7 +12,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Listen for all auth changes (initial mount, login, logout, token refresh, etc.)
     // Supabase will fire INITIAL_SESSION immediately upon subscribing.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log(`🔑 Auth event: ${event}`)
 
       if (event === 'SIGNED_OUT') {
         setUser(null)
@@ -89,7 +88,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setTimeout(() => {
           // Double check if hash still exists before clearing
           if (window.location.hash.includes('access_token') || window.location.hash.includes('type=recovery')) {
-            console.log('🧹 Cleaning up sensitive URL hash...');
             window.history.replaceState(null, '', window.location.pathname + window.location.search);
           }
         }, 100);

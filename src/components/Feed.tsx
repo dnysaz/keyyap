@@ -18,9 +18,9 @@ interface FeedProps {
 export default function Feed({ isGlobal = false }: FeedProps) {
   const searchParams = useSearchParams()
   const activeTab = searchParams.get('tab') || 'foryou'
-  const { user, loading: authLoading } = useAuthStore()
+  const { user, loading: authLoading, _hasHydrated: authHydrated } = useAuthStore()
 
-  const { posts, setPosts } = usePostStore()
+  const { posts, setPosts, _hasHydrated: postsHydrated, lastFetched } = usePostStore()
 
   const [loading, setLoading] = useState(false)
   const [hasMore, setHasMore] = useState(true)
@@ -28,113 +28,87 @@ export default function Feed({ isGlobal = false }: FeedProps) {
   const [newPostsCount, setNewPostsCount] = useState(0)
   const [initialLoaded, setInitialLoaded] = useState(false)
 
+  // Filter unique posts and apply guest limit if needed
   const uniquePosts = posts.filter((post, index, self) => index === self.findIndex(p => p.id === post.id))
+  // CACHE LOGIC: If we have posts from a previous session, we'll show them immediately
   const displayPosts = user ? uniquePosts : uniquePosts.slice(0, 5)
 
   const fetchPosts = useCallback(async (pageNum: number = 0, append: boolean = false) => {
-    if (!append && displayPosts.length === 0) setLoading(true)
+    // Only show loading if we have NO posts in cache
+    if (!append && posts.length === 0) setLoading(true)
 
     const limit = 15
     const offset = pageNum * limit
     const activeTab = searchParams.get('tab') || 'foryou'
     const currentUserId = useAuthStore.getState().user?.id || null
-    console.log(`🔍 Feed: Starting fetch for tab "${activeTab}", page ${pageNum}, append: ${append}, user: ${currentUserId}`)
 
-    // Safety timeout for this specific fetch
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Fetch timeout')), 10000)
-    )
+    // Safety timeout
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 10000)
 
     try {
-      let queryPromise = (async () => {
-        let query = supabase
-          .from('posts')
-          .select(`
-            *,
-            profiles:user_id!inner(id,username,full_name,avatar_url,hide_from_global,hide_from_search)
-          `)
-          .eq('is_deleted', false)
-          .order('created_at', { ascending: false })
-          .range(offset, offset + limit - 1)
+      let query = supabase
+        .from('posts')
+        .select(`
+          *,
+          profiles:user_id!inner(id,username,full_name,avatar_url,hide_from_global,hide_from_search)
+        `)
+        .eq('is_deleted', false)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1)
 
-        console.log('📡 Feed: Fetching following list...')
-        let followingIds: string[] = []
-        
-        if (currentUserId) {
-          const { data: following, error: fError } = await supabase
-            .from('follows')
-            .select('following_id')
-            .eq('follower_id', currentUserId)
-  
-          if (fError) console.error('❌ Follows fetch error:', fError)
-          followingIds = following?.map(f => f.following_id) || []
+      let followingIds: string[] = []
+      
+      if (currentUserId) {
+        const { data: following } = await supabase
+          .from('follows')
+          .select('following_id')
+          .eq('follower_id', currentUserId)
+        followingIds = following?.map(f => f.following_id) || []
+      }
+
+      const allowedIds = [...followingIds, currentUserId].filter(Boolean) as string[]
+
+      if (!user) {
+        query = query.filter('profiles.username', 'eq', 'keyyap')
+      }
+
+      if (isGlobal && user) {
+        query = query.filter('profiles.hide_from_global', 'neq', true)
+      }
+
+      if (currentUserId && !isGlobal) {
+        if (followingIds.length > 0) {
+          query = query.in('user_id', allowedIds)
+        } else {
+          query = query.or(`user_id.eq.${currentUserId},profiles.username.eq.keyyap`)
         }
+      }
 
-        const allowedIds = [...followingIds, currentUserId].filter(Boolean) as string[]
-        console.log(`👥 Feed: allowedIds [${allowedIds.length}] :`, allowedIds)
+      const { data: postsResult, error: postsError } = await query
 
-        // Global Guest Filter: If not logged in, ALWAYS only show 'keyyap' posts
-        if (!user) {
-          query = query.filter('profiles.username', 'eq', 'keyyap')
-        }
+      if (postsError) throw postsError
 
-        // Filter logic: Standard Global Feed
-        if (isGlobal && user) {
-          // Logged in users: show all non-hidden posts
-          query = query.filter('profiles.hide_from_global', 'neq', true)
-        }
+      // Fetch quotes and likes
+      const postIds = (postsResult || []).map(p => p.id)
+      const quotedPostIds = (postsResult || []).map(p => (p as any).quoted_post_id).filter(id => id != null)
+      
+      let quotedPostsMap: Record<string, any> = {}
+      let userLikes: string[] = []
 
-        if (currentUserId && !isGlobal) {
-          if (followingIds.length > 0) {
-            // User follows people, show their posts + user's own posts
-            query = query.in('user_id', allowedIds)
-          } else {
-            // User follows NO ONE: Show user's own posts OR official 'keyyap' posts
-            query = query.or(`user_id.eq.${currentUserId},profiles.username.eq.keyyap`)
-          }
-        }
+      const [quotesRes, likesRes] = await Promise.all([
+        quotedPostIds.length > 0 ? supabase.from('posts').select('*, profiles:user_id (id, username, full_name, avatar_url)').in('id', quotedPostIds) : Promise.resolve({ data: [] }),
+        (currentUserId && postIds.length > 0) ? supabase.from('post_likes').select('post_id').eq('user_id', currentUserId).in('post_id', postIds) : Promise.resolve({ data: [] })
+      ])
 
-        console.log('📡 Feed: Executing posts query...')
-        const { data: postsResult, error: postsError } = await query
+      quotesRes.data?.forEach((qp: any) => { quotedPostsMap[qp.id] = qp })
+      userLikes = likesRes.data?.map((l: any) => l.post_id) || []
 
-        if (postsError) {
-          console.error('❌ Posts query error:', postsError)
-          throw postsError
-        }
-
-        console.log(`✅ Feed: Received ${postsResult?.length || 0} posts from DB`)
-
-        // Fetch quotes
-        const quotedPostIds = (postsResult || []).map(p => (p as any).quoted_post_id).filter(id => id != null)
-        let quotedPostsMap: Record<string, any> = {}
-        if (quotedPostIds.length > 0) {
-          const { data: qpData } = await supabase
-            .from('posts')
-            .select('*, profiles:user_id (id, username, full_name, avatar_url)')
-            .in('id', quotedPostIds)
-          qpData?.forEach((qp: any) => { quotedPostsMap[qp.id] = qp })
-        }
-
-        // Check likes
-        const postIds = (postsResult || []).map(p => p.id)
-        let userLikes: string[] = []
-        if (currentUserId && postIds.length > 0) {
-          const { data: likesData } = await supabase.from('post_likes').select('post_id').eq('user_id', currentUserId).in('post_id', postIds)
-          userLikes = likesData?.map(l => l.post_id) || []
-        }
-
-        const finalPosts = (postsResult || []).map((post: any) => ({
-          ...post,
-          quoted_post: post.quoted_post_id ? quotedPostsMap[post.quoted_post_id] || null : null,
-          is_liked: userLikes.includes(post.id),
-        })) as unknown as Post[]
-
-        return finalPosts
-      })()
-
-      // Race the query against the timeout
-      const finalPosts = await Promise.race([queryPromise, timeoutPromise]) as Post[]
-      console.log(`✨ Feed: Fetch complete. Final posts to render: ${finalPosts.length}`)
+      const finalPosts = (postsResult || []).map((post: any) => ({
+        ...post,
+        quoted_post: post.quoted_post_id ? quotedPostsMap[post.quoted_post_id] || null : null,
+        is_liked: userLikes.includes(post.id),
+      })) as unknown as Post[]
 
       if (append) {
         setPosts([...posts, ...finalPosts])
@@ -143,21 +117,28 @@ export default function Feed({ isGlobal = false }: FeedProps) {
       }
       setHasMore((finalPosts?.length || 0) === limit)
     } catch (err) {
-      console.error('💥 Feed critical error:', err)
+      console.error('Feed fetch error:', err)
     } finally {
+      clearTimeout(timeoutId)
       setLoading(false)
     }
   }, [posts, setPosts, isGlobal, user])
 
-  // Initial fetch: wait for auth to settle, then fetch once
+  // Initial fetch logic: 
+  // 1. Wait for auth and posts are hydrated from storage
+  // 2. If data is stale (> 5 mins) or empty, fetch fresh data
   useEffect(() => {
-    if (!authLoading && !initialLoaded) {
+    if (authHydrated && postsHydrated && !initialLoaded) {
       setInitialLoaded(true)
-      fetchPosts(0)
+      
+      const isStale = !lastFetched || (Date.now() - lastFetched > 5 * 60 * 1000)
+      if (posts.length === 0 || isStale) {
+        fetchPosts(0)
+      }
     }
-  }, [authLoading, initialLoaded])
+  }, [authHydrated, postsHydrated, initialLoaded, lastFetched, posts.length])
 
-  // Tab switching refreshes data
+  // Tab switching always refreshes but doesn't necessarily show skeleton if we have old data
   useEffect(() => {
     if (initialLoaded) {
       setPage(0)
@@ -186,9 +167,7 @@ export default function Feed({ isGlobal = false }: FeedProps) {
 
   useEffect(() => {
     const handleScroll = () => {
-      // Disable infinite scroll if user is not logged in OR if there are no more posts
-      if (!user || user === null) return
-
+      if (!user) return
       if (window.innerHeight + document.documentElement.scrollTop >= document.documentElement.offsetHeight - 800 && hasMore && !loading) {
         loadMore()
       }
@@ -197,8 +176,8 @@ export default function Feed({ isGlobal = false }: FeedProps) {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [hasMore, loading, page, user])
 
-  // Show skeleton while auth is loading OR while doing initial data fetch
-  const showSkeleton = authLoading || (loading && uniquePosts.length === 0)
+  // Improved loading state: Only show skeleton if we truly have nothing to show yet
+  const showSkeleton = authLoading || (loading && displayPosts.length === 0)
 
   return (
     <div className="animate-in fade-in duration-500">
@@ -234,7 +213,6 @@ export default function Feed({ isGlobal = false }: FeedProps) {
         </div>
       )}
 
-      {/* Paywall: Show this when the guest hits the 5-post limit */}
       {!user && !authLoading && displayPosts.length > 0 && (
         <div className="py-16 px-4 bg-gray-50/50 border-t border-gray-100 flex flex-col items-center justify-center text-center">
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 w-full max-w-sm">

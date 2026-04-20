@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { sanitizeAdminHtml } from '@/lib/sanitize'
 import Sidebar from '@/components/Sidebar'
 import RightSidebar from '@/components/RightSidebar'
 import Navigation from '@/components/Navigation'
@@ -66,7 +67,7 @@ export default function CookiesPage() {
               ) : (
                 <div className="legal-content-wrapper">
                   <div 
-                    dangerouslySetInnerHTML={{ __html: cookieData?.value || 'Cookie policy will be updated soon.' }} 
+                    dangerouslySetInnerHTML={{ __html: sanitizeAdminHtml(cookieData?.value || 'Cookie policy will be updated soon.') }} 
                     className="rich-text-content"
                   />
                 </div>

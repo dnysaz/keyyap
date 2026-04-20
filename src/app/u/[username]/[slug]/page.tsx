@@ -7,12 +7,36 @@ import { ArrowLeft, Heart, MessageCircle, Repeat, Send, UserPlus, UserCheck, Ext
 import { usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/authStore'
+import { usePostStore } from '@/stores/postStore'
 import Sidebar from '@/components/Sidebar'
+
+/**
+ * Local Instagram Icon fallback
+ */
+const Instagram = ({ className }: { className?: string }) => (
+  <svg 
+    xmlns="http://www.w3.org/2003/svg" 
+    width="24" 
+    height="24" 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={className}
+  >
+    <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+    <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+  </svg>
+)
 import RightSidebar from '@/components/RightSidebar'
 import { PostDetailSkeleton } from '@/components/Skeleton'
 import Navigation from '@/components/Navigation'
 import Avatar from '@/components/Avatar'
 import { getSlug, formatDate } from '@/lib/utils'
+import { escapeHtml } from '@/lib/sanitize'
 
 interface Comment {
   id: string
@@ -38,12 +62,23 @@ interface LinkMetadata {
   description?: string
   image?: string
   domain?: string
+  tiktok_id?: string | null
 }
 
 function extractSpotifyId(url: string) {
   const match = url.match(/https?:\/\/open\.spotify\.com\/(track|album|playlist)\/([a-zA-Z0-9]+)/)
   if (!match) return null
   return { type: match[1], id: match[2] }
+}
+
+function extractTiktokId(url: string): string | null {
+  const match = url.match(/tiktok\.com\/.*\/video\/(\d+)/)
+  return match ? match[1] : null
+}
+
+function extractInstagramId(url: string): string | null {
+  const match = url.match(/instagram\.com\/(?:p|reels|reel)\/([A-Za-z0-9_-]+)/)
+  return match ? match[1] : null
 }
 
 function formatContent(content: string, linkMetas: LinkMetadata[], expandedVideo: string | null, onVideoClick: (url: string) => void) {
@@ -75,6 +110,58 @@ function formatContent(content: string, linkMetas: LinkMetadata[], expandedVideo
             )
           }
 
+          const ttId = meta?.tiktok_id || extractTiktokId(part)
+          if (ttId) {
+            return (
+              <div key={partIdx} className="rounded-xl overflow-hidden border border-gray-100 bg-white mt-3 w-full flex items-stretch h-[340px]">
+                <div className="w-[190px] shrink-0 bg-black relative overflow-hidden">
+                  <div className="absolute inset-0 flex items-start justify-start" style={{ width: '325px', height: '580px', transform: 'scale(0.585)', transformOrigin: 'top left' }}>
+                    <iframe
+                      src={`https://www.tiktok.com/embed/v2/${ttId}`}
+                      className="w-full h-full border-0"
+                      allow="autoplay; encrypted-media"
+                      loading="lazy"
+                      scrolling="no"
+                    />
+                  </div>
+                </div>
+                <div className="p-5 flex-1 min-w-0 flex flex-col justify-center bg-gray-50/20">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <svg className="w-3.5 h-3.5 text-gray-900 fill-current" viewBox="0 0 24 24"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.06-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-1.22-.32-2.57-.3-3.73.3-.54.28-1.03.68-1.39 1.16-.49.63-.69 1.41-.74 2.2-.08 1.5.39 3.03 1.48 4.07 1.08 1.05 2.61 1.49 4.09 1.34 1.28-.15 2.41-.89 3.06-2.02.37-.63.53-1.35.54-2.08v-14.1z"/></svg>
+                    <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">TikTok Content</span>
+                  </div>
+                  <h4 className="font-bold text-[16px] text-gray-900 line-clamp-2 leading-tight">{meta?.title || 'View TikTok'}</h4>
+                  {meta?.description && <p className="text-[13px] text-gray-500 mt-2 line-clamp-4 leading-relaxed">{meta.description}</p>}
+                </div>
+              </div>
+            )
+          }
+
+          const igId = extractInstagramId(part)
+          if (igId) {
+            return (
+              <div key={partIdx} className="rounded-2xl overflow-hidden border border-gray-200 bg-white mt-3 w-full flex items-stretch h-[340px]">
+                <div className="w-[190px] shrink-0 bg-gray-50 border-r border-gray-100">
+                  <iframe
+                    src={`https://www.instagram.com/p/${igId}/embed/captioned/`}
+                    className="w-full h-[450px] border-0 -translate-y-[45px]"
+                    allow="autoplay; encrypted-media"
+                    loading="lazy"
+                    scrolling="no"
+                  />
+                </div>
+                <div className="p-5 flex-1 min-w-0 flex flex-col justify-center bg-gray-50/5">
+                  <div className="flex items-center gap-2 mb-3">
+                     <Instagram className="w-5 h-5 text-pink-500" />
+                     <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Instagram Content</span>
+                  </div>
+                  <h4 className="font-bold text-[16px] text-gray-900 line-clamp-1 no-underline">{meta?.title || 'Instagram Post'}</h4>
+                  {meta?.description && <p className="text-[13px] text-gray-500 mt-2 line-clamp-4 leading-relaxed no-underline">{meta.description}</p>}
+                </div>
+              </div>
+            )
+          }
+
           const spotify = extractSpotifyId(part)
           if (spotify) {
             return (
@@ -100,16 +187,18 @@ function formatContent(content: string, linkMetas: LinkMetadata[], expandedVideo
                 href={part}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex border border-gray-200 rounded-lg mt-2 hover:bg-gray-50 overflow-hidden"
+                className="flex border border-gray-200 rounded-2xl mt-3 hover:bg-gray-50/50 overflow-hidden items-stretch h-[140px] no-underline bg-white"
               >
                 {meta.image && (
-                  <img src={meta.image} alt={meta.title} className="w-24 h-24 object-cover flex-shrink-0" />
+                  <div className="w-[140px] shrink-0 overflow-hidden border-r border-gray-100 bg-gray-50">
+                    <img src={meta.image} alt={meta.title} className="w-full h-full object-cover" />
+                  </div>
                 )}
-                <div className="p-3 flex-1 min-w-0">
-                  <div className="text-xs text-gray-500">{meta.domain}</div>
-                  <div className="font-medium text-sm mt-1 truncate">{meta.title}</div>
+                <div className="p-4 flex-1 min-w-0 flex flex-col justify-center">
+                  <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">{meta.domain}</div>
+                  <div className="font-bold text-[15px] text-gray-900 truncate no-underline">{meta.title}</div>
                   {meta.description && (
-                    <div className="text-sm text-gray-600 mt-1 line-clamp-2">{meta.description}</div>
+                    <div className="text-[13px] text-gray-500 mt-1 line-clamp-2 no-underline leading-snug">{meta.description}</div>
                   )}
                 </div>
               </a>
@@ -129,7 +218,8 @@ function formatContent(content: string, linkMetas: LinkMetadata[], expandedVideo
           )
         }
 
-        let formatted = part
+        // SECURITY: Escape non-URL text to prevent XSS
+        let formatted = escapeHtml(part)
           .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
           .replace(/\*(.+?)\*/g, '<em>$1</em>')
           .replace(/__(.+)__/g, '<u>$1</u>')
@@ -167,7 +257,8 @@ export default function PostDetailPage() {
   const router = useRouter()
   const username = params.username as string
   const slug = params.slug as string
-  const { user, profile: currentProfile } = useAuthStore()
+  const { user, profile: currentProfile, _hasHydrated: authHydrated } = useAuthStore()
+  const { posts, _hasHydrated: postsHydrated } = usePostStore()
 
   const [post, setPost] = useState<any>(null)
   const [profile, setProfile] = useState<any>(null)
@@ -218,6 +309,23 @@ export default function PostDetailPage() {
       const idPrefix = parts[parts.length - 1]
 
       try {
+        // Strategy 0: Check global postStore (CACHE)
+        const cachedPost = posts.find(p => {
+          const expectedSlug = getSlug(p.id, p.content)
+          return expectedSlug === slug || p.id.startsWith(idPrefix)
+        })
+
+        if (cachedPost) {
+          setProfile(cachedPost.profiles)
+          setPost(cachedPost)
+          setLikesCount(cachedPost.likes_count ?? 0)
+          setRepostCount(cachedPost.shares_count ?? 0)
+          setCommentCount(cachedPost.comments_count ?? 0)
+          setIsLiked(cachedPost.is_liked || false)
+          setLoading(false)
+          // Continue background fetch to ensure fresh data (comments, latest counts)
+        }
+
         // Strategy 1: Try direct ID prefix match (fastest)
         let matchedPost: any = null
         
@@ -307,8 +415,8 @@ export default function PostDetailPage() {
       }
     }
 
-    if (username && slug) {
-      setLoading(true)
+    if (username && slug && postsHydrated && authHydrated) {
+      setLoading(post ? false : true) // Don't show loading if we already found it in Strategy 0
       fetchPost()
     }
 
@@ -392,7 +500,7 @@ export default function PostDetailPage() {
           filter: `post_id=eq.${postId}`
         },
         async (payload) => {
-          console.log(`Realtime comment event [${payload.eventType}]:`, payload)
+
 
           if (payload.eventType === 'INSERT') {
             const newCommentId = payload.new.id
@@ -419,9 +527,7 @@ export default function PostDetailPage() {
           }
         }
       )
-      .subscribe((status) => {
-        console.log(`Comments realtime status for ${postId}:`, status)
-      })
+      .subscribe()
 
     return () => {
       supabase.removeChannel(channel)
@@ -670,8 +776,11 @@ export default function PostDetailPage() {
   }
 
   function formatCommentLinkText(content: string) {
+    // SECURITY: Escape HTML entities first to prevent XSS
+    let formatted = escapeHtml(content)
+
     // 1. Handle Mentions - Always link for consistency
-    let formatted = content.replace(/@(\w+)/g, `<a href="/u/$1" class="text-primary font-bold hover:underline">@$1</a>`)
+    formatted = formatted.replace(/@(\w+)/g, `<a href="/u/$1" class="text-primary font-bold hover:underline">@$1</a>`)
 
     // 2. Handle URLs
     formatted = formatted.replace(/(https?:\/\/[^\s]+)/g, (url) => {

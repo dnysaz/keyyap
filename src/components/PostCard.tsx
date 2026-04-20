@@ -8,6 +8,29 @@ import { supabase } from '@/lib/supabase'
 import type { Post, Profile } from '@/types'
 import Avatar from './Avatar'
 import { getSlug, formatDate } from '@/lib/utils'
+import { escapeHtml } from '@/lib/sanitize'
+
+/**
+ * Local Instagram Icon fallback if lucide-react version is too old
+ */
+const Instagram = ({ className }: { className?: string }) => (
+  <svg 
+    xmlns="http://www.w3.org/2003/svg" 
+    width="24" 
+    height="24" 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={className}
+  >
+    <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+    <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+  </svg>
+)
 
 interface PostCardProps {
   post: Post
@@ -22,6 +45,7 @@ interface LinkMetadata {
   description?: string
   image?: string
   domain?: string
+  tiktok_id?: string | null
 }
 
 function extractYoutubeId(url: string): string | null {
@@ -200,8 +224,9 @@ export default function PostCard({ post, currentUserId, onLikeChange, reposterUs
 
   function formatContent(content: string) {
     if (!content) return null
-    // Detect URLs and Mentions and wrap in <a> tags
-    let formatted = content
+    // SECURITY: Escape HTML entities first to prevent XSS injection
+    let formatted = escapeHtml(content)
+      // Detect URLs and Mentions and wrap in <a> tags
       .replace(/(https?:\/\/[^\s]+)/g, (url) => {
         const displayUrl = url.length > 40 ? url.substring(0, 40) + '...' : url
         return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline font-medium">${displayUrl}</a>`
@@ -220,6 +245,17 @@ export default function PostCard({ post, currentUserId, onLikeChange, reposterUs
       </span>
     ))
   }
+
+  function extractTiktokId(url: string): string | null {
+    const match = url.match(/tiktok\.com\/.*\/video\/(\d+)/)
+    return match ? match[1] : null
+  }
+
+  function extractInstagramId(url: string): string | null {
+    const match = url.match(/instagram\.com\/(?:p|reels|reel)\/([A-Za-z0-9_-]+)/)
+    return match ? match[1] : null
+  }
+
 
   const displayedContent = showFull || post.content.length <= TRUNCATE_LENGTH ? post.content : post.content.slice(0, TRUNCATE_LENGTH) + '...'
 
@@ -321,12 +357,14 @@ export default function PostCard({ post, currentUserId, onLikeChange, reposterUs
           {linkMetas.length > 0 && (
             <div className="mt-3 space-y-3">
               {linkMetas.map((link, idx) => {
+                const ttId = link.tiktok_id || extractTiktokId(link.url)
+                const igId = extractInstagramId(link.url)
                 const youtubeId = extractYoutubeId(link.url)
                 const isSpotify = extractSpotifyId(link.url)
                 
                 if (youtubeId) {
                   return (
-                    <div key={idx} className="rounded-2xl overflow-hidden border border-gray-200 bg-black aspect-video relative group/video shadow-sm">
+                    <div key={idx} className="rounded-2xl overflow-hidden border border-gray-200 bg-black aspect-video relative group/video">
                       {expandedVideo === youtubeId ? (
                         <iframe
                           src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1`}
@@ -350,6 +388,61 @@ export default function PostCard({ post, currentUserId, onLikeChange, reposterUs
                   )
                 }
 
+                if (ttId) {
+                  return (
+                    <div key={idx} className="rounded-2xl overflow-hidden border border-gray-100 bg-white w-full flex items-stretch h-[340px]">
+                      <div className="w-[190px] shrink-0 bg-black relative overflow-hidden">
+                        <div className="absolute inset-0 flex items-start justify-start" style={{ width: '325px', height: '580px', transform: 'scale(0.585)', transformOrigin: 'top left' }}>
+                          <iframe
+                            src={`https://www.tiktok.com/embed/v2/${ttId}`}
+                            className="w-full h-full border-0"
+                            allow="autoplay; encrypted-media"
+                            loading="lazy"
+                            scrolling="no"
+                          />
+                        </div>
+                      </div>
+                      <div className="p-5 flex-1 min-w-0 flex flex-col justify-center bg-gray-50/20">
+                        <div className="flex items-center gap-2 mb-3">
+                           <div className="w-6 h-6 rounded-full bg-black flex items-center justify-center">
+                             <svg className="w-3.5 h-3.5 text-white fill-current" viewBox="0 0 24 24"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.06-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-1.22-.32-2.57-.3-3.73.3-.54.28-1.03.68-1.39 1.16-.49.63-.69 1.41-.74 2.2-.08 1.5.39 3.03 1.48 4.07 1.08 1.05 2.61 1.49 4.09 1.34 1.28-.15 2.41-.89 3.06-2.02.37-.63.53-1.35.54-2.08v-14.1z"/></svg>
+                           </div>
+                           <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">TikTok Content</span>
+                        </div>
+                        <h4 className="font-bold text-[16px] text-gray-900 line-clamp-2 leading-tight">{link.title || 'View TikTok'}</h4>
+                        {link.description && <p className="text-[13px] text-gray-500 mt-2 line-clamp-4 leading-relaxed">{link.description}</p>}
+                      </div>
+                    </div>
+                  )
+                }
+
+                if (igId) {
+                  return (
+                    <div key={idx} className="rounded-2xl overflow-hidden border border-gray-100 bg-white w-full flex items-stretch h-[340px]">
+                      <div className="w-[190px] shrink-0 bg-gray-50 border-r border-gray-100">
+                        <iframe
+                          src={`https://www.instagram.com/p/${igId}/embed/captioned/`}
+                          className="w-full h-[450px] border-0 -translate-y-[45px]" /* Offset to hide IG headers in small window */
+                          allow="autoplay; encrypted-media"
+                          loading="lazy"
+                          scrolling="no"
+                        />
+                      </div>
+                      <div className="p-5 flex-1 min-w-0 flex flex-col justify-center bg-gray-50/10">
+                        <div className="flex items-center gap-2 mb-3">
+                           <Instagram className="w-5 h-5 text-pink-500" />
+                           <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Instagram Content</span>
+                        </div>
+                        <h4 className="font-bold text-[16px] text-gray-900 line-clamp-1">{link.title || 'Instagram Post'}</h4>
+                        {link.description && <p className="text-[13px] text-gray-500 mt-2 line-clamp-4 leading-relaxed">{link.description}</p>}
+                        <a href={link.url} target="_blank" rel="noopener noreferrer" className="mt-3 text-[12px] font-bold text-primary hover:underline flex items-center gap-1">
+                          Open in App <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
+                    </div>
+                  )
+                }
+
                 if (isSpotify) return null // Handled below by a dedicated map for all urls
                 
                 return (
@@ -358,19 +451,19 @@ export default function PostCard({ post, currentUserId, onLikeChange, reposterUs
                     href={link.url} 
                     target="_blank" 
                     rel="noopener noreferrer" 
-                    className="block rounded-2xl border border-gray-200 overflow-hidden hover:bg-gray-50/50 transition-all group/link shadow-sm bg-white"
+                    className="flex rounded-2xl border border-gray-200 overflow-hidden hover:bg-gray-50/50 transition-all group/link bg-white items-stretch h-[140px]"
                   >
                     {link.image && (
-                      <div className="w-full h-[280px] overflow-hidden">
+                      <div className="w-[140px] shrink-0 overflow-hidden border-r border-gray-100 bg-gray-50">
                         <img src={link.image} className="w-full h-full object-cover group-hover/link:scale-105 transition-transform duration-500" alt="" />
                       </div>
                     )}
-                    <div className="p-3.5 border-t border-gray-100">
-                      <div className="flex items-center gap-1.5 text-[13px] text-gray-500 mb-1 Capitalize">
+                    <div className="p-4 flex-1 min-w-0 flex flex-col justify-center">
+                      <div className="flex items-center gap-1.5 text-[11px] text-gray-400 mb-1 font-bold uppercase tracking-widest">
                         <LinkIcon className="w-3 h-3" /> {extractDomain(link.url)}
                       </div>
                       <h4 className="font-bold text-gray-900 text-[15px] line-clamp-1 group-hover/link:text-primary transition-colors">{link.title || link.url}</h4>
-                      {link.description && <p className="text-[14px] text-gray-500 line-clamp-2 mt-1 leading-snug">{link.description}</p>}
+                      {link.description && <p className="text-[13px] text-gray-500 line-clamp-2 mt-1 leading-snug">{link.description}</p>}
                     </div>
                   </a>
                 )
@@ -457,6 +550,49 @@ export default function PostCard({ post, currentUserId, onLikeChange, reposterUs
                           </div>
                         )
                       }
+
+                      const ttId = link.tiktok_id || extractTiktokId(link.url)
+                      const igId = extractInstagramId(link.url)
+
+                      if (ttId) {
+                        return (
+                          <div key={idx} className="rounded-xl overflow-hidden border border-gray-100 bg-white w-full">
+                            <iframe
+                              src={`https://www.tiktok.com/embed/v2/${ttId}`}
+                              className="w-full h-[600px] border-0"
+                              allow="autoplay; encrypted-media"
+                              loading="lazy"
+                              scrolling="no"
+                            />
+                          </div>
+                        )
+                      }
+
+                      if (igId) {
+                        return (
+                          <div key={idx} className="rounded-2xl overflow-hidden border border-gray-200 bg-white w-full group/ig">
+                            <a href={link.url} target="_blank" rel="noopener noreferrer" className="block relative no-underline">
+                              {link.image ? (
+                                <div className="relative aspect-square bg-gray-50 overflow-hidden">
+                                  <img src={link.image} className="w-full h-full object-cover transition-transform duration-700 group-hover/ig:scale-105" alt="" />
+                                  <div className="absolute top-2 right-2 bg-black/50 backdrop-blur-sm p-1 rounded-full text-white">
+                                    <Instagram className="w-3 h-3" />
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="aspect-square bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400 flex items-center justify-center text-white">
+                                  <Instagram className="w-8 h-8" />
+                                </div>
+                              )}
+                              <div className="p-3 border-t border-gray-100">
+                                <h4 className="font-bold text-gray-900 text-[13px] truncate line-clamp-1 no-underline">{link.title || 'Instagram Post'}</h4>
+                                <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mt-0.5 no-underline">Instagram Content</p>
+                              </div>
+                            </a>
+                          </div>
+                        )
+                      }
+
                       return (
                         <div key={idx} className="rounded-xl border border-gray-100 overflow-hidden bg-white flex items-stretch h-16">
                           {link.image && (

@@ -34,7 +34,6 @@ export async function compressImage(file: File, maxWidth = 800, quality = 0.6): 
         canvas.toBlob(
           (blob) => {
             if (blob) {
-              console.log(`📸 Image compressed: ${(file.size / 1024).toFixed(2)}KB -> ${(blob.size / 1024).toFixed(2)}KB`);
               resolve(blob);
             } else {
               reject(new Error('Canvas toBlob failed'));

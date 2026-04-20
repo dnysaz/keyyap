@@ -43,19 +43,11 @@ export default function NotificationHandler() {
             filter: `user_id=eq.${userId}`,
           },
           (payload) => {
-            console.log('✨ New notification received:', payload)
             incrementUnreadCount()
             // Optionally we could fetch notifications here too for the instant feel
           }
         )
-        .subscribe((status) => {
-          if (status === 'SUBSCRIBED') {
-            console.log('✅ Realtime connected for user:', userId)
-          }
-          if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-            console.log('⚠️ Realtime connection closed/error:', status)
-          }
-        })
+        .subscribe()
 
       channelRef.current = channel
     }, 1000)

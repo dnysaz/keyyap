@@ -80,21 +80,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // EXTRA AGGRESSIVE URL CLEANUP
   // This ensures hash tokens are removed even if the router tries to preserve them
   useEffect(() => {
-    const cleanupUrl = () => {
-      if (typeof window !== 'undefined' && window.location.hash && 
-         (window.location.hash.includes('access_token') || window.location.hash.includes('type=recovery'))) {
+    if (typeof window !== 'undefined' && window.location.hash) {
+      if (window.location.hash.includes('access_token') || 
+          window.location.hash.includes('type=recovery') || 
+          window.location.hash.includes('error_description')) {
         
-        // Use a small delay to ensure Next.js router has finished its internal work
-        setTimeout(() => {
-          // Double check if hash still exists before clearing
-          if (window.location.hash.includes('access_token') || window.location.hash.includes('type=recovery')) {
-            window.history.replaceState(null, '', window.location.pathname + window.location.search);
-          }
-        }, 100);
+        // Remove the hash immediately from the URL without triggering a reload
+        const newUrl = window.location.pathname + window.location.search;
+        window.history.replaceState(null, '', newUrl);
       }
-    };
-
-    cleanupUrl();
+    }
   }, []);
 
   return <>{children}</>

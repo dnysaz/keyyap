@@ -23,10 +23,11 @@ interface BlogCardProps {
 }
 
 export default function BlogCard({ blog }: BlogCardProps) {
-  // Truncate content for the feed view
-  const truncatedContent = blog.content.length > 160 
-    ? blog.content.substring(0, 160) + '...' 
-    : blog.content
+  // Strip HTML and truncate content for the feed view
+  const cleanText = blog.content.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').trim()
+  const truncatedContent = cleanText.length > 160 
+    ? cleanText.substring(0, 160) + '...' 
+    : cleanText
 
   return (
     <div className="bg-white border-b border-gray-100 hover:bg-gray-50/30 transition-all px-4 py-8 md:py-10 group">

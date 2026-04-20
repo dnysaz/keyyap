@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, MessageCircle, Send, SendHorizontal } from 'lucide-react'
+import { ArrowLeft, MessageCircle, Send, SendHorizontal, Link as LinkIcon, ExternalLink } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/authStore'
 import Sidebar from '@/components/Sidebar'
@@ -196,6 +196,38 @@ export default function BlogDetailPage() {
               <div className="text-[17px] text-gray-800 leading-relaxed break-words font-medium">
                 {formatContent(blog.content, true)}
               </div>
+
+              {/* Link Previews */}
+              {(() => {
+                const cleanText = blog.content.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ');
+                const urls = cleanText.match(/https?:\/\/[^\s<>"]+/g);
+                if (urls && urls.length > 0) {
+                  return (
+                    <div className="mt-12 pt-8 border-t border-gray-50 flex flex-col gap-4">
+                      <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2">Internal Links & References</p>
+                      {Array.from(new Set(urls)).map((url: any, idx) => (
+                        <a 
+                          key={idx}
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-4 p-4 bg-gray-50/50 hover:bg-orange-50/50 rounded-2xl border border-gray-100 transition-all group"
+                        >
+                          <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-gray-400 group-hover:text-orange-500 transition-colors">
+                            <LinkIcon className="w-5 h-5" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-gray-400 mb-0.5">Detected Link</p>
+                            <p className="text-sm font-bold text-gray-800 truncate">{url}</p>
+                          </div>
+                          <ExternalLink className="w-4 h-4 text-gray-300 group-hover:text-orange-400" />
+                        </a>
+                      ))}
+                    </div>
+                  );
+                }
+                return null;
+              })()}
             </article>
 
             {/* Comments Section */}

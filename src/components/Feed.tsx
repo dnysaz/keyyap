@@ -44,14 +44,12 @@ export default function Feed({ isGlobal = false }: FeedProps) {
   const displayPosts = user ? uniquePosts : uniquePosts.slice(0, 5)
 
   const fetchPosts = useCallback(async (pageNum: number = 0, append: boolean = false) => {
-    // Only show loading if we have NO posts in cache
-    if (!append && posts.length === 0) setLoading(true)
-    setLoading(true)
+    // Only show loading if we have NO posts or it's a fresh fetch
+    if (!append) setLoading(true)
     loadingRef.current = true
 
     const limit = 15
     const offset = pageNum * limit
-    const activeTab = searchParams.get('tab') || 'foryou'
     const currentUserId = useAuthStore.getState().user?.id || null
 
     // Safety timeout
@@ -81,11 +79,12 @@ export default function Feed({ isGlobal = false }: FeedProps) {
 
       const allowedIds = [...followingIds, currentUserId].filter(Boolean) as string[]
 
-      if (!user) {
+      if (!currentUserId) {
+        // Guest mode: only show keyyap's posts
         query = query.filter('profiles.username', 'eq', 'keyyap')
       }
 
-      if (isGlobal && user) {
+      if (isGlobal && currentUserId) {
         query = query.filter('profiles.hide_from_global', 'neq', true)
       }
 
@@ -123,7 +122,7 @@ export default function Feed({ isGlobal = false }: FeedProps) {
       })) as unknown as Post[]
 
       if (append) {
-        setPosts([...posts, ...finalPosts])
+        setPosts([...usePostStore.getState().posts, ...finalPosts])
       } else {
         setPosts(finalPosts)
       }
@@ -136,30 +135,17 @@ export default function Feed({ isGlobal = false }: FeedProps) {
       setLoading(false)
       loadingRef.current = false
     }
-  }, [posts, setPosts, isGlobal, user])
+  }, [setPosts, isGlobal])
 
-  // Initial fetch logic: 
-  // 1. Wait for auth and posts are hydrated from storage
-  // 2. If data is stale (> 5 mins) or empty, fetch fresh data
+  // Initial and reactive fetch logic
   useEffect(() => {
-    if (authHydrated && postsHydrated && !initialLoaded) {
-      setInitialLoaded(true)
-      
-      const isStale = !lastFetched || (Date.now() - lastFetched > 5 * 60 * 1000)
-      if (posts.length === 0 || isStale) {
-        fetchPosts(0)
-      }
-    }
-  }, [authHydrated, postsHydrated, initialLoaded, lastFetched, posts.length])
-
-  // Tab switching always refreshes but doesn't necessarily show skeleton if we have old data
-  useEffect(() => {
-    if (initialLoaded) {
+    if (authHydrated && postsHydrated) {
+      // If user ID changes (login/logout) or tab changes, we always fetch fresh
+      fetchPosts(0)
       setPage(0)
       pageRef.current = 0
-      fetchPosts(0)
     }
-  }, [activeTab])
+  }, [user?.id, activeTab, authHydrated, postsHydrated, isGlobal, fetchPosts])
 
   // Realtime: listen for new posts
   useEffect(() => {

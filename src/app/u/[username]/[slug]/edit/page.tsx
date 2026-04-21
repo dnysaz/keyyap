@@ -13,6 +13,7 @@ import Avatar from '@/components/Avatar'
 import { getSlug, formatDate } from '@/lib/utils'
 import Link from 'next/link'
 import LocationInput from '@/components/LocationInput'
+import LinkPreviewCard from '@/components/LinkPreviewCard'
 
 const MAX_CHARS = 512
 
@@ -400,41 +401,19 @@ export default function EditPage() {
                       />
                     </div>
 
-                    {/* Spotify/Link Preview for typing content */}
-                    {(previewLoading || previewData) && (
-                      <div className="mt-4 border border-gray-100 rounded-2xl overflow-hidden bg-white shadow-sm transition-all mb-4">
-                        {previewLoading ? (
-                          <div className="w-full py-8 text-center text-xs text-gray-400 font-medium tracking-widest animate-pulse uppercase">Fetching preview...</div>
-                        ) : previewData?.spotify ? (
-                          <div className="w-full">
-                            <iframe
-                              src={`https://open.spotify.com/embed/${previewData.spotify.type}/${previewData.spotify.id}?utm_source=generator&theme=0`}
-                              width="100%"
-                              height={previewData.spotify.type === 'track' ? "80" : "152"}
-                              frameBorder="0"
-                              allowFullScreen
-                              allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                              loading="lazy"
-                              className="block"
-                            />
+                    {/* Unified Link Preview */}
+                    {(() => {
+                      const urlRegex = /(https?:\/\/[^\s]+)/
+                      const match = content.match(urlRegex)
+                      if (!match) return null
+                      return (
+                        <div className="mt-4 mb-4 pointer-events-none">
+                          <div className="pointer-events-auto">
+                            <LinkPreviewCard url={match[0]} />
                           </div>
-                        ) : previewData && (
-                          <a href={previewData.url} target="_blank" rel="noopener noreferrer" className="block w-full group">
-                            {previewData.image && (
-                              <div className="w-full h-48 md:h-64 relative overflow-hidden bg-gray-50 border-b border-gray-50">
-                                <img src={previewData.image} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                              </div>
-                            )}
-                            <div className="p-4 flex-1 min-w-0">
-                              <div className="flex items-center gap-1.5 text-[12px] text-gray-500 mb-1">
-                                <Search className="w-3 h-3" /> {extractDomain(previewData.url)}
-                              </div>
-                              <h4 className="font-bold text-gray-900 text-[15px] line-clamp-1 group-hover:text-primary transition-colors">{previewData.title || 'Link Preview'}</h4>
-                            </div>
-                          </a>
-                        )}
-                      </div>
-                    )}
+                        </div>
+                      )
+                    })()}
 
                     {/* QUOTED POST PREVIEW - The missing piece */}
                     {quotedPost && (
@@ -447,53 +426,17 @@ export default function EditPage() {
                         </div>
                         <p className="text-sm text-gray-700 whitespace-pre-wrap line-clamp-3 mb-3">{quotedPost.content}</p>
                         
-                        {/* Quoted Media/Spotify */}
-                        <div className="space-y-2">
-                          {quotedLinkMetas.map((link, idx) => {
-                            const ytId = extractYoutubeId(link.url)
-                            if (ytId) {
-                                return (
-                                  <div key={idx} className="rounded-xl overflow-hidden border border-gray-100 bg-black aspect-video relative">
-                                    <img src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`} className="w-full h-full object-cover opacity-70" alt="" />
-                                    <div className="absolute inset-0 flex items-center justify-center">
-                                        <Play className="w-8 h-8 text-white fill-current" />
-                                    </div>
-                                  </div>
-                                )
-                            }
-                            return (
-                              <div key={idx} className="rounded-xl border border-gray-100 overflow-hidden bg-white flex items-stretch h-14">
-                                {link.image && <img src={link.image} className="w-16 h-full object-cover shrink-0" alt="" />}
-                                <div className="p-2 flex-1 min-w-0 flex flex-col justify-center">
-                                  <h4 className="font-bold text-[12px] text-gray-900 truncate">{link.title || link.url}</h4>
-                                  <p className="text-[9px] text-gray-500 uppercase tracking-widest">{extractDomain(link.url)}</p>
-                                </div>
-                              </div>
-                            )
-                          })}
-
-                          {/* Quoted Spotify */}
-                          {(() => {
-                            const urlRegex = /(https?:\/\/[^\s]+)/g
-                            const urls = quotedPost.content?.match(urlRegex) || []
-                            return urls.map((url: string, idx: number) => {
-                              const spotify = extractSpotifyId(url)
-                              if (!spotify) return null
-                              return (
-                                <div key={`q-spot-${idx}`} className="rounded-xl overflow-hidden border border-gray-100">
-                                  <iframe
-                                    src={`https://open.spotify.com/embed/${spotify.type}/${spotify.id}?utm_source=generator&theme=0`}
-                                    width="100%"
-                                    height="80"
-                                    frameBorder="0"
-                                    allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                                    loading="lazy"
-                                  />
-                                </div>
-                              )
-                            })
-                          })()}
-                        </div>
+                        {/* Unified Quoted Media Content */}
+                        {(() => {
+                          const urls = quotedPost.content?.match(/(https?:\/\/[^\s]+)/g) || []
+                          if (urls.length === 0) return null;
+                          const uniqueUrls = Array.from(new Set(urls)) as string[]
+                          return (
+                            <div className="space-y-2 mt-2">
+                               {uniqueUrls.map((u, i) => <LinkPreviewCard key={`quoted-link-${i}`} url={u} />)}
+                            </div>
+                          )
+                        })()}
                       </div>
                     )}
 

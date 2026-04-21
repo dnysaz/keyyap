@@ -12,6 +12,7 @@ import Avatar from '@/components/Avatar'
 import Navigation from '@/components/Navigation'
 import AuthGuard from '@/components/AuthGuard'
 import LocationInput from '@/components/LocationInput'
+import LinkPreviewCard from '@/components/LinkPreviewCard'
 
 const MAX_CHARS = 512
 
@@ -325,33 +326,16 @@ export default function RepostPage() {
                       </div>
 
                       {/* Link Preview in Original Post */}
-                      {linkMeta && (
-                        <div className="border-t border-gray-100 bg-white">
-                          {(() => {
-                            const ytId = linkMeta.url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\s]+)/)?.[1]
-                            if (ytId) {
-                              return (
-                                <div className="aspect-video relative group/yt bg-black">
-                                  <img src={`https://img.youtube.com/vi/${ytId}/maxresdefault.jpg`} className="w-full h-full object-cover opacity-80" alt="" />
-                                  <div className="absolute inset-0 flex items-center justify-center">
-                                    <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center text-white shadow-2xl">
-                                      <Play className="w-8 h-8 fill-current translate-x-1" />
-                                    </div>
-                                  </div>
-                                </div>
-                              )
-                            }
-                            return linkMeta.image && <img src={linkMeta.image} className="w-full h-[300px] object-cover" alt="" />
-                          })()}
-                          <div className="p-4 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => window.open(linkMeta.url, '_blank')}>
-                            <div className="flex items-center gap-2 text-[12px] text-gray-400 mb-1 uppercase font-bold tracking-widest leading-none">
-                              <LinkIcon className="w-3.5 h-3.5" /> {extractDomain(linkMeta.url)}
-                            </div>
-                            <h4 className="font-bold text-gray-900 text-[16px] leading-tight text-primary transition-colors">{linkMeta.title}</h4>
-                            {linkMeta.description && <p className="text-[14px] text-gray-500 line-clamp-2 mt-1.5 leading-snug">{linkMeta.description}</p>}
+                      {(() => {
+                        const urls = originalPost.content?.match(/(https?:\/\/[^\s]+)/g) || []
+                        if (urls.length === 0) return null;
+                        const uniqueUrls = Array.from(new Set(urls)) as string[]
+                        return (
+                          <div className="border-t border-gray-100 bg-white p-3 space-y-2">
+                             {uniqueUrls.map((u, i) => <LinkPreviewCard key={`repost-${i}`} url={u} />)}
                           </div>
-                        </div>
-                      )}
+                        )
+                      })()}
                     </div>
 
                     <div className="pt-8 border-t border-gray-50">

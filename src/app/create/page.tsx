@@ -12,6 +12,7 @@ import Navigation from '@/components/Navigation'
 import AuthGuard from '@/components/AuthGuard'
 import Avatar from '@/components/Avatar'
 import LocationInput from '@/components/LocationInput'
+import LinkPreviewCard from '@/components/LinkPreviewCard'
 
 const MAX_CHARS = 512
 
@@ -362,59 +363,19 @@ export default function CreatePage() {
                       />
                     </div>
 
-                    {/* Link/Spotify Preview */}
-                    {(previewLoading || previewData) && (
-                      <div className="mt-4 border border-gray-100 rounded-2xl overflow-hidden bg-white shadow-sm transition-all">
-                        {previewLoading ? (
-                          <div className="w-full py-8 text-center text-xs text-gray-400 font-medium tracking-widest animate-pulse uppercase">
-                            Fetching preview...
+                    {/* Unified Link Preview */}
+                    {(() => {
+                      const urlRegex = /(https?:\/\/[^\s]+)/
+                      const match = content.match(urlRegex)
+                      if (!match) return null
+                      return (
+                        <div className="mt-4 pointer-events-none">
+                          <div className="pointer-events-auto">
+                            <LinkPreviewCard url={match[0]} />
                           </div>
-                        ) : previewData?.spotify ? (
-                          <div className="w-full">
-                            <iframe
-                              src={`https://open.spotify.com/embed/${previewData.spotify.type}/${previewData.spotify.id}?utm_source=generator&theme=0`}
-                              width="100%"
-                              height={previewData.spotify.type === 'track' ? "80" : "152"}
-                              frameBorder="0"
-                              allowFullScreen
-                              allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                              loading="lazy"
-                              className="block"
-                            />
-                          </div>
-                        ) : previewData && (
-                          <a
-                            href={previewData.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="block w-full group"
-                          >
-                            {previewData.image && (
-                              <div className="w-full h-48 sm:h-64 relative overflow-hidden bg-gray-50 border-b border-gray-50">
-                                <img
-                                  src={previewData.image}
-                                  alt=""
-                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                                />
-                              </div>
-                            )}
-                            <div className="p-4 flex-1 min-w-0">
-                              <div className="flex items-center gap-1.5 text-[12px] text-gray-500 mb-1">
-                                <Search className="w-3 h-3" /> {new URL(previewData.url).hostname.replace('www.', '')}
-                              </div>
-                              <h4 className="font-bold text-gray-900 text-[15px] line-clamp-1 group-hover:text-primary transition-colors">
-                                {previewData.title || 'Link Preview'}
-                              </h4>
-                              {previewData.description && (
-                                <p className="text-sm text-gray-500 line-clamp-2 mt-1 leading-snug">
-                                  {previewData.description}
-                                </p>
-                              )}
-                            </div>
-                          </a>
-                        )}
-                      </div>
-                    )}
+                        </div>
+                      )
+                    })()}
 
                     <div className={`text-right text-sm mt-1 ${isOverLimit ? 'text-red-500' : 'text-gray-400'}`}>
                       {charCount}/{MAX_CHARS}

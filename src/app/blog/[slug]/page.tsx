@@ -140,15 +140,17 @@ export default function BlogDetailPage() {
             })()}
 
             <div className="flex items-center gap-4">
-               <button 
-                  onClick={() => {
-                    setReplyTo(comment)
-                    commentInputRef.current?.focus()
-                  }}
-                  className="text-[12px] font-bold text-gray-400 hover:text-orange-500 transition-colors"
-               >
-                  Reply
-               </button>
+               {level < 1 && (
+                 <button 
+                    onClick={() => {
+                      setReplyTo(comment)
+                      commentInputRef.current?.focus()
+                    }}
+                    className="text-[12px] font-bold text-gray-400 hover:text-orange-500 transition-colors"
+                 >
+                    Reply
+                 </button>
+               )}
             </div>
 
             {/* Render Replies */}

@@ -123,29 +123,31 @@ CREATE TRIGGER update_blogs_timestamp
     EXECUTE FUNCTION update_blogs_updated_at();
 
 -- 7. Fungsi RPC untuk Increment Views (Aman & Mencatat Riwayat)
-CREATE OR REPLACE FUNCTION increment_blog_views(blog_id UUID)
+DROP FUNCTION IF EXISTS increment_blog_views(UUID);
+CREATE OR REPLACE FUNCTION increment_blog_views(p_blog_id UUID)
 RETURNS VOID AS $$
 BEGIN
     -- Update total views
     UPDATE public.blogs
     SET views = COALESCE(views, 0) + 1
-    WHERE id = blog_id;
+    WHERE id = p_blog_id;
 
     -- Mencatat riwayat harian untuk grafik dashboard
     INSERT INTO public.blog_stats (blog_id, view_date, view_count)
-    VALUES (blog_id, CURRENT_DATE, 1)
+    VALUES (p_blog_id, CURRENT_DATE, 1)
     ON CONFLICT (blog_id, view_date)
     DO UPDATE SET view_count = public.blog_stats.view_count + 1;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 8. Fungsi RPC untuk Increment Shares
-CREATE OR REPLACE FUNCTION increment_blog_shares(blog_id UUID)
+DROP FUNCTION IF EXISTS increment_blog_shares(UUID);
+CREATE OR REPLACE FUNCTION increment_blog_shares(p_blog_id UUID)
 RETURNS VOID AS $$
 BEGIN
     UPDATE public.blogs
     SET shares = COALESCE(shares, 0) + 1
-    WHERE id = blog_id;
+    WHERE id = p_blog_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 

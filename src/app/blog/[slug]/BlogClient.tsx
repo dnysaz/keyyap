@@ -31,7 +31,7 @@ export default function BlogClient({ initialBlog }: { initialBlog: any }) {
     if (blog) {
       fetchComments(blog.id)
       // Increment views on client side
-      supabase.rpc('increment_blog_views', { blog_id: blog.id }).then(() => {
+      supabase.rpc('increment_blog_views', { p_blog_id: blog.id }).then(() => {
           // Update local state views count for UI
           setBlog((prev: any) => ({ ...prev, views: (prev?.views || 0) + 1 }))
       })
@@ -158,7 +158,7 @@ export default function BlogClient({ initialBlog }: { initialBlog: any }) {
     try {
       await navigator.clipboard.writeText(window.location.href)
       setCopied(true)
-      await supabase.rpc('increment_blog_shares', { blog_id: blog.id })
+      await supabase.rpc('increment_blog_shares', { p_blog_id: blog.id })
       setTimeout(() => setCopied(false), 2000)
     } catch (err) {
       console.error('Error copying:', err)

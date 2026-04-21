@@ -59,9 +59,15 @@ BEGIN
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
         blog_id UUID REFERENCES public.blogs(id) ON DELETE CASCADE,
         view_date DATE DEFAULT CURRENT_DATE,
-        view_count INTEGER DEFAULT 0,
-        UNIQUE(blog_id, view_date)
+        view_count INTEGER DEFAULT 0
     );
+
+    -- Paksa penambahan constraint unik jika terlewat (penting untuk upsert RPC)
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'blog_stats_blog_id_view_date_key'
+    ) THEN
+        ALTER TABLE public.blog_stats ADD CONSTRAINT blog_stats_blog_id_view_date_key UNIQUE(blog_id, view_date);
+    END IF;
     
     -- Tambah Parent ID secara terpisah
     IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'comments' AND COLUMN_NAME = 'parent_id') THEN

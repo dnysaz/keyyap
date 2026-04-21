@@ -19,6 +19,7 @@ interface BlogCardProps {
       full_name: string
       avatar_url: string
     } | null
+    comments_count?: number
   }
 }
 
@@ -89,7 +90,7 @@ export default function BlogCard({ blog }: BlogCardProps) {
             <div className="flex items-center gap-4 text-gray-400 text-sm">
                 <div className="flex items-center gap-1.5">
                     <MessageCircle className="w-4 h-4" />
-                    <span>Comment</span>
+                    <span>{blog.comments_count || 0} Comments</span>
                 </div>
             </div>
           </div>

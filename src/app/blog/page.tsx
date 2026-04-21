@@ -19,12 +19,17 @@ export default function BlogListPage() {
       try {
         const { data, error } = await supabase
           .from('blogs')
-          .select('*, profiles(username, full_name, avatar_url)')
+          .select('*, profiles(username, full_name, avatar_url), comments(count)')
           .eq('status', 'published')
           .order('created_at', { ascending: false })
 
         if (error) throw error
-        setBlogs(data || [])
+        
+        const formattedData = (data || []).map((blog: any) => ({
+          ...blog,
+          comments_count: blog.comments?.[0]?.count || 0
+        }))
+        setBlogs(formattedData)
       } catch (err) {
         console.error('Error fetching blogs:', err)
       } finally {

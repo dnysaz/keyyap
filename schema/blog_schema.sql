@@ -45,10 +45,23 @@ END $$;
 -- 3. Sinkronisasi Tabel Comments (Link ke Blog)
 DO $$ 
 BEGIN 
-    -- Tambah Blog ID
+    -- Tambah Blog ID dengan CASCADE agar bisa dihapus
     IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'comments' AND COLUMN_NAME = 'blog_id') THEN
-        ALTER TABLE public.comments ADD COLUMN blog_id UUID REFERENCES public.blogs(id);
+        ALTER TABLE public.comments ADD COLUMN blog_id UUID REFERENCES public.blogs(id) ON DELETE CASCADE;
+    ELSE
+        -- Jika sudah ada, pastikan punya ON DELETE CASCADE
+        ALTER TABLE public.comments DROP CONSTRAINT IF EXISTS comments_blog_id_fkey;
+        ALTER TABLE public.comments ADD CONSTRAINT comments_blog_id_fkey FOREIGN KEY (blog_id) REFERENCES public.blogs(id) ON DELETE CASCADE;
     END IF;
+
+    -- 3a. Tabel untuk Statistik Riwayat (Agar Grafik Real)
+    CREATE TABLE IF NOT EXISTS public.blog_stats (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        blog_id UUID REFERENCES public.blogs(id) ON DELETE CASCADE,
+        view_date DATE DEFAULT CURRENT_DATE,
+        view_count INTEGER DEFAULT 0,
+        UNIQUE(blog_id, view_date)
+    );
     
     -- Tambah Parent ID secara terpisah
     IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'comments' AND COLUMN_NAME = 'parent_id') THEN
@@ -103,13 +116,20 @@ CREATE TRIGGER update_blogs_timestamp
     FOR EACH ROW
     EXECUTE FUNCTION update_blogs_updated_at();
 
--- 7. Fungsi RPC untuk Increment Views (Aman)
+-- 7. Fungsi RPC untuk Increment Views (Aman & Mencatat Riwayat)
 CREATE OR REPLACE FUNCTION increment_blog_views(blog_id UUID)
 RETURNS VOID AS $$
 BEGIN
+    -- Update total views
     UPDATE public.blogs
     SET views = COALESCE(views, 0) + 1
     WHERE id = blog_id;
+
+    -- Mencatat riwayat harian untuk grafik dashboard
+    INSERT INTO public.blog_stats (blog_id, view_date, view_count)
+    VALUES (blog_id, CURRENT_DATE, 1)
+    ON CONFLICT (blog_id, view_date)
+    DO UPDATE SET view_count = public.blog_stats.view_count + 1;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, MessageCircle, Send, SendHorizontal, Link as LinkIcon, ExternalLink, Eye, Share2 } from 'lucide-react'
+import { ArrowLeft, MessageCircle, Send, SendHorizontal, Link as LinkIcon, ExternalLink, Eye, Share2, Check, Copy } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/authStore'
 import Sidebar from '@/components/Sidebar'
@@ -26,6 +26,8 @@ export default function BlogDetailPage() {
   const [comments, setComments] = useState<any[]>([])
   const [newComment, setNewComment] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [replyTo, setReplyTo] = useState<any>(null)
+  const [copied, setCopied] = useState(false)
   
   const commentInputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -86,10 +88,12 @@ export default function BlogDetailPage() {
       const { error } = await supabase.from('comments').insert({
         user_id: user.id,
         blog_id: blog.id,
-        content: content
+        content: content,
+        parent_id: replyTo?.id || null
       })
 
       if (error) throw error
+      setReplyTo(null)
       await fetchComments(blog.id)
     } catch (err) {
       console.error('Error adding comment:', err)
@@ -97,6 +101,67 @@ export default function BlogDetailPage() {
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  // Recursive Comment Component
+  const CommentItem = ({ comment, allComments, level = 0 }: { comment: any, allComments: any[], level?: number }) => {
+    const replies = allComments.filter(c => c.parent_id === comment.id)
+    
+    return (
+      <div className={`${level > 0 ? 'ml-10 mt-4 border-l-2 border-gray-50 pl-4' : 'p-4'} hover:bg-gray-50/30 transition-colors`}>
+        <div className="flex gap-3">
+          <Link href={`/u/${comment.profiles?.username}`}>
+            <Avatar url={comment.profiles?.avatar_url || undefined} username={comment.profiles?.username} size={level > 0 ? "xs" : "sm"} />
+          </Link>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 mb-1">
+              <span className="font-bold text-[14px] text-gray-900">{comment.profiles?.full_name || comment.profiles?.username}</span>
+              <span className="text-gray-400 text-[12px]">· {formatDate(comment.created_at)}</span>
+            </div>
+            
+            <div className="text-[15px] text-gray-800 leading-relaxed break-words font-medium mb-3">
+              {formatContent(comment.content)}
+            </div>
+
+            {/* Link Preview in Comment */}
+            {(() => {
+              const urls = comment.content.match(/https?:\/\/[^\s<>"]+/g);
+              if (urls && urls.length > 0) {
+                return (
+                  <div className="mb-4">
+                    {Array.from(new Set(urls)).slice(0, 1).map((url: any, i) => (
+                      <LinkPreviewCard key={i} url={url} />
+                    ))}
+                  </div>
+                )
+              }
+              return null;
+            })()}
+
+            <div className="flex items-center gap-4">
+               <button 
+                  onClick={() => {
+                    setReplyTo(comment)
+                    commentInputRef.current?.focus()
+                  }}
+                  className="text-[12px] font-bold text-gray-400 hover:text-orange-500 transition-colors"
+               >
+                  Reply
+               </button>
+            </div>
+
+            {/* Render Replies */}
+            {replies.length > 0 && (
+              <div className="mt-2">
+                {replies.map(reply => (
+                  <CommentItem key={reply.id} comment={reply} allComments={allComments} level={level + 1} />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    )
   }
 
   function formatContent(content: string, isRichText: boolean = false) {
@@ -138,12 +203,25 @@ export default function BlogDetailPage() {
     try {
       if (navigator.share) {
         await navigator.share(shareData)
+        // Increment shares on real share
+        await supabase.rpc('increment_blog_shares', { blog_id: blog.id })
       } else {
-        await navigator.clipboard.writeText(window.location.href)
-        alert('Link copied to clipboard!')
+        handleCopy()
       }
     } catch (err) {
       console.error('Error sharing:', err)
+    }
+  }
+
+  const handleCopy = async () => {
+    if (!blog) return
+    try {
+      await navigator.clipboard.writeText(window.location.href)
+      setCopied(true)
+      await supabase.rpc('increment_blog_shares', { blog_id: blog.id })
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) {
+      console.error('Error copying:', err)
     }
   }
 
@@ -205,17 +283,21 @@ export default function BlogDetailPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
                   <div className="flex items-center gap-1.5 text-gray-400 font-bold text-[13px] bg-gray-50 px-3 py-1.5 rounded-full">
                     <Eye className="w-4 h-4" />
                     {blog.views || 0}
                   </div>
+                  <div className="flex items-center gap-1.5 text-gray-400 font-bold text-[13px] bg-gray-50 px-3 py-1.5 rounded-full">
+                    <Share2 className="w-4 h-4" />
+                    {blog.shares || 0}
+                  </div>
                   <button 
-                    onClick={handleShare}
-                    className="flex items-center gap-2 text-gray-600 font-bold text-[13px] hover:bg-gray-100 px-3 py-1.5 rounded-full transition-all border border-gray-100"
+                    onClick={handleCopy}
+                    className={`flex items-center gap-2 font-bold text-[13px] px-3 py-1.5 rounded-full transition-all border ${copied ? 'bg-orange-500 border-orange-500 text-white' : 'text-gray-600 border-gray-100 hover:bg-gray-100'}`}
                   >
-                    <Share2 className="w-4 h-4 text-orange-500" />
-                    Share
+                    {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4 text-orange-500" />}
+                    {copied ? 'Copied!' : 'Copy Link'}
                   </button>
                 </div>
               </div>
@@ -286,9 +368,19 @@ export default function BlogDetailPage() {
                   <div className="flex gap-3">
                     <Avatar url={currentProfile?.avatar_url || undefined} username={currentProfile?.username} size="sm" />
                     <div className="flex-1">
+                      {replyTo && (
+                        <div className="mb-2 flex items-center justify-between bg-orange-50 px-3 py-1.5 rounded-lg border border-orange-100">
+                          <p className="text-[12px] text-orange-600 font-medium">
+                            Replying to <span className="font-bold">@{replyTo.profiles?.username}</span>
+                          </p>
+                          <button onClick={() => setReplyTo(null)} className="text-orange-400 hover:text-orange-600">
+                            <ArrowLeft className="w-3 h-3 rotate-90" />
+                          </button>
+                        </div>
+                      )}
                       <textarea
                         ref={commentInputRef}
-                        placeholder="Write your thoughts..."
+                        placeholder={replyTo ? "Write your reply..." : "Write your thoughts..."}
                         value={newComment}
                         onChange={(e) => {
                             setNewComment(e.target.value)
@@ -325,24 +417,11 @@ export default function BlogDetailPage() {
                     <p className="text-gray-400 font-bold">Be the first to yap about this article! ✨</p>
                   </div>
                 ) : (
-                  comments.map((comment) => (
-                    <div key={comment.id} className="p-4 hover:bg-gray-50/50 transition-colors">
-                      <div className="flex gap-3">
-                        <Link href={`/u/${comment.profiles?.username}`}>
-                          <Avatar url={comment.profiles?.avatar_url || undefined} username={comment.profiles?.username} size="sm" />
-                        </Link>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5 mb-0.5">
-                            <span className="font-bold text-[14px] text-gray-900">{comment.profiles?.full_name || comment.profiles?.username}</span>
-                            <span className="text-gray-400 text-[13px]">· {formatDate(comment.created_at)}</span>
-                          </div>
-                          <div className="text-[15px] text-gray-800 leading-relaxed break-words whitespace-pre-wrap font-medium">
-                            {formatContent(comment.content)}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))
+                  <div className="divide-y divide-gray-50">
+                    {comments.filter(c => !c.parent_id).map((comment) => (
+                      <CommentItem key={comment.id} comment={comment} allComments={comments} />
+                    ))}
+                  </div>
                 )}
               </div>
             </div>

@@ -31,6 +31,11 @@ BEGIN
         ALTER TABLE public.blogs ADD COLUMN views INTEGER DEFAULT 0;
     END IF;
 
+    -- Tambah Share Count
+    IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'blogs' AND COLUMN_NAME = 'shares') THEN
+        ALTER TABLE public.blogs ADD COLUMN shares INTEGER DEFAULT 0;
+    END IF;
+
     -- Update Batas Karakter Konten (Hapus constraint lama jika ada)
     ALTER TABLE public.blogs ALTER COLUMN content TYPE TEXT;
     ALTER TABLE public.blogs DROP CONSTRAINT IF EXISTS blogs_content_check;
@@ -43,6 +48,9 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'comments' AND COLUMN_NAME = 'blog_id') THEN
         ALTER TABLE public.comments ADD COLUMN blog_id UUID REFERENCES public.blogs(id);
         
+        -- Tambah Parent ID untuk Nested Comments
+        ALTER TABLE public.comments ADD COLUMN parent_id UUID REFERENCES public.comments(id) ON DELETE CASCADE;
+
         -- Constraint: Komentar hanya boleh ke Post ATAU Blog, tidak keduanya
         ALTER TABLE public.comments DROP CONSTRAINT IF EXISTS comments_target_check;
         ALTER TABLE public.comments ADD CONSTRAINT comments_target_check 
@@ -95,6 +103,16 @@ RETURNS VOID AS $$
 BEGIN
     UPDATE public.blogs
     SET views = COALESCE(views, 0) + 1
+    WHERE id = blog_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 8. Fungsi RPC untuk Increment Shares
+CREATE OR REPLACE FUNCTION increment_blog_shares(blog_id UUID)
+RETURNS VOID AS $$
+BEGIN
+    UPDATE public.blogs
+    SET shares = COALESCE(shares, 0) + 1
     WHERE id = blog_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

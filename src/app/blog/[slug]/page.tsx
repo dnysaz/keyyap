@@ -64,10 +64,10 @@ export default function BlogDetailPage() {
     try {
       const { data, error } = await supabase
         .from('comments')
-        .select('*, profiles(username, full_name, avatar_url)')
+        .select('*, profiles(id, username, full_name, avatar_url)')
         .eq('blog_id', blogId)
         .eq('is_deleted', false)
-        .order('created_at', { ascending: true })
+        .order('created_at', { ascending: false })
 
       if (error) throw error
       setComments(data || [])

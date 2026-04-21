@@ -131,7 +131,7 @@ export default function BlogDetailPage() {
                 return (
                   <div className="mb-4">
                     {Array.from(new Set(urls)).slice(0, 1).map((url: any, i) => (
-                      <LinkPreviewCard key={i} url={url} compact={true} />
+                      <LinkPreviewCard key={i} url={url} />
                     ))}
                   </div>
                 )

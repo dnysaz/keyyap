@@ -69,6 +69,11 @@ BEGIN
         ALTER TABLE public.blog_stats ADD CONSTRAINT blog_stats_blog_id_view_date_key UNIQUE(blog_id, view_date);
     END IF;
     
+    -- Pastikan RLS dimatikan atau izinkan akses agar Dashboard bisa baca graph
+    ALTER TABLE public.blog_stats ENABLE ROW LEVEL SECURITY;
+    DROP POLICY IF EXISTS "Public can view blog stats" ON public.blog_stats;
+    CREATE POLICY "Public can view blog stats" ON public.blog_stats FOR SELECT USING (true);
+    
     -- Tambah Parent ID secara terpisah
     IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'comments' AND COLUMN_NAME = 'parent_id') THEN
         ALTER TABLE public.comments ADD COLUMN parent_id UUID REFERENCES public.comments(id) ON DELETE CASCADE;

@@ -42,56 +42,35 @@ export default function LinkPreviewCard({ url }: { url: string }) {
 
   if (!data) return null
 
-  const hostname = new URL(url).hostname
-
   return (
     <a 
       href={url} 
       target="_blank" 
       rel="noopener noreferrer" 
-      className="block bg-white border border-gray-100 rounded-2xl p-4 md:p-6 hover:bg-gray-50/50 transition-all group my-6 shadow-sm"
+      className="flex gap-4 p-0 bg-white hover:bg-gray-50 rounded-2xl border border-gray-100 transition-all group overflow-hidden my-6 shadow-sm"
     >
-      <div className="flex flex-col gap-3">
-        {/* Header: Site Info */}
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 bg-orange-50 rounded-full flex items-center justify-center shrink-0">
-             <div className="w-3 h-3 bg-orange-500 rounded-full animate-pulse" />
-          </div>
-          <span className="text-[12px] font-black text-gray-500 uppercase tracking-widest">
-            {hostname}
-          </span>
+      {data.image && (
+        <div className="w-24 md:w-44 shrink-0 border-r border-gray-50 overflow-hidden bg-gray-50">
+          <img 
+            src={data.image} 
+            alt={data.title} 
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          />
         </div>
-
-        {/* Inner Content */}
-        <div className="space-y-1">
-          <h4 className="text-lg md:text-xl font-black text-gray-900 group-hover:text-orange-500 transition-colors leading-tight">
-            {data.title}
-          </h4>
-          {data.description && (
-            <p className="text-[14px] text-gray-600 font-medium leading-relaxed line-clamp-2">
-              {data.description}
-            </p>
-          )}
-        </div>
-
-        {/* Featured Image */}
-        {data.image && (
-          <div className="mt-2 rounded-xl overflow-hidden aspect-video border border-gray-50 relative bg-gray-50">
-            <img 
-              src={data.image} 
-              alt={data.title} 
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-            />
-          </div>
+      )}
+      
+      <div className="flex-1 py-4 pr-4 min-w-0 flex flex-col justify-center">
+        <h4 className="text-[15px] font-black text-gray-900 group-hover:text-orange-500 transition-colors line-clamp-1 mb-1">
+          {data.title}
+        </h4>
+        {data.description && (
+          <p className="text-[13px] text-gray-500 line-clamp-2 font-medium leading-relaxed mb-2">
+            {data.description}
+          </p>
         )}
-
-        {/* Action Meta */}
-        <div className="flex items-center gap-1.5 text-orange-500 font-bold text-[12px] mt-1 italic">
-          Visit {hostname}
-          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-          </svg>
-        </div>
+        <p className="text-[12px] font-bold text-orange-500 truncate group-hover:underline opacity-80 uppercase tracking-tight">
+          {new URL(url).hostname}
+        </p>
       </div>
     </a>
   )

@@ -364,24 +364,6 @@ export default function PostCard({ post, currentUserId, onLikeChange, reposterUs
               {Array.from(new Set(urls)).map((url, idx) => (
                 <LinkPreviewCard key={idx} url={url} />
               ))}
-              
-              {/* Spotify Previews */}
-              {urls.map((url: string, idx: number) => {
-                const spotify = extractSpotifyId(url)
-                if (!spotify) return null
-                return (
-                  <div key={`spotify-${idx}`} className="rounded-xl overflow-hidden border border-gray-100 bg-white">
-                    <iframe
-                      src={`https://open.spotify.com/embed/${spotify.type}/${spotify.id}?utm_source=generator&theme=0`}
-                      width="100%"
-                      height={spotify.type === 'track' ? "80" : "152"}
-                      allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                      loading="lazy"
-                      className="block border-0"
-                    />
-                  </div>
-                )
-              })}
             </div>
           )}
 
@@ -426,101 +408,12 @@ export default function PostCard({ post, currentUserId, onLikeChange, reposterUs
                   )}
                 </div>
 
-                {/* Quoted Media Content */}
-                {quotedLinkMetas.length > 0 && (
-                  <div className="px-4 pb-3 space-y-2 relative z-10">
-                    {quotedLinkMetas.map((link, idx) => {
-                      const ytId = extractYoutubeId(link.url)
-                      if (ytId) {
-                        return (
-                          <div key={idx} className="rounded-xl overflow-hidden border border-gray-100 bg-black aspect-video relative group/qp-video">
-                            <img src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`} className="w-full h-full object-cover opacity-80" alt="" />
-                            <div className="absolute inset-0 flex items-center justify-center pointer-events-auto">
-                              <Link 
-                                href={`/u/${qpProfile?.username || 'user'}/${getSlug(qp.id, qp.content || '')}`}
-                                className="w-10 h-10 bg-primary/90 text-white rounded-full flex items-center justify-center hover:scale-110 transition-transform shadow-lg"
-                              >
-                                <Play className="w-5 h-5 fill-current translate-x-0.5" />
-                              </Link>
-                            </div>
-                          </div>
-                        )
-                      }
-
-                      const ttId = link.tiktok_id || extractTiktokId(link.url)
-                      const igId = extractInstagramId(link.url)
-
-                      if (ttId) {
-                        return (
-                          <div key={idx} className="rounded-xl overflow-hidden border border-gray-100 bg-white w-full">
-                            <iframe
-                              src={`https://www.tiktok.com/embed/v2/${ttId}`}
-                              className="w-full h-[600px] border-0"
-                              allow="autoplay; encrypted-media"
-                              loading="lazy"
-                              scrolling="no"
-                            />
-                          </div>
-                        )
-                      }
-
-                      if (igId) {
-                        return (
-                          <div key={idx} className="rounded-2xl overflow-hidden border border-gray-200 bg-white w-full group/ig">
-                            <a href={link.url} target="_blank" rel="noopener noreferrer" className="block relative no-underline">
-                              {link.image ? (
-                                <div className="relative aspect-square bg-gray-50 overflow-hidden">
-                                  <img src={link.image} className="w-full h-full object-cover transition-transform duration-700 group-hover/ig:scale-105" alt="" />
-                                  <div className="absolute top-2 right-2 bg-black/50 backdrop-blur-sm p-1 rounded-full text-white">
-                                    <Instagram className="w-3 h-3" />
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="aspect-square bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400 flex items-center justify-center text-white">
-                                  <Instagram className="w-8 h-8" />
-                                </div>
-                              )}
-                              <div className="p-3 border-t border-gray-100">
-                                <h4 className="font-bold text-gray-900 text-[13px] truncate line-clamp-1 no-underline">{link.title || 'Instagram Post'}</h4>
-                                <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mt-0.5 no-underline">Instagram Content</p>
-                              </div>
-                            </a>
-                          </div>
-                        )
-                      }
-
-                      return (
-                        <div key={idx} className="rounded-xl border border-gray-100 overflow-hidden bg-white flex items-stretch h-16">
-                          {link.image && (
-                            <div className="w-20 shrink-0">
-                              <img src={link.image} className="w-full h-full object-cover" alt="" />
-                            </div>
-                          )}
-                          <div className="p-2 px-3 flex-1 min-w-0 flex flex-col justify-center">
-                            <h4 className="font-bold text-gray-900 text-[13px] truncate">{link.title || link.url}</h4>
-                            <p className="text-[10px] text-gray-500 line-clamp-1 uppercase font-bold tracking-wider">{extractDomain(link.url)}</p>
-                          </div>
-                        </div>
-                      )
-                    })}
-
-                    {/* Quoted Spotify Previews */}
-                    {qpUrls.map((url: string, idx: number) => {
-                      const spotify = extractSpotifyId(url)
-                      if (!spotify) return null
-                      return (
-                        <div key={`qp-spotify-${idx}`} className="rounded-xl overflow-hidden border border-gray-100 bg-white">
-                          <iframe
-                            src={`https://open.spotify.com/embed/${spotify.type}/${spotify.id}?utm_source=generator&theme=0`}
-                            width="100%"
-                            height={spotify.type === 'track' ? "80" : "152"}
-                            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                            loading="lazy"
-                            className="block border-0"
-                          />
-                        </div>
-                      )
-                    })}
+                {/* Quoted Media Content - Using unified LinkPreviewCard */}
+                {qpUrls && qpUrls.length > 0 && (
+                  <div className="px-4 pb-3 space-y-2 relative z-10 pointer-events-auto">
+                    {Array.from(new Set(qpUrls)).map((url: any, idx) => (
+                      <LinkPreviewCard key={`qp-link-${idx}`} url={url} />
+                    ))}
                   </div>
                 )}
               </div>

@@ -37,6 +37,7 @@ import Navigation from '@/components/Navigation'
 import Avatar from '@/components/Avatar'
 import { getSlug, formatDate } from '@/lib/utils'
 import { escapeHtml } from '@/lib/sanitize'
+import LinkPreviewCard from '@/components/LinkPreviewCard'
 
 interface Comment {
   id: string
@@ -910,65 +911,19 @@ export default function PostDetailPage() {
                   <span className="text-[10px] text-gray-400 italic ml-2 bg-gray-50 px-1.5 py-0.5 rounded">Edited</span>
                 )}
 
-                {/* Link & Video Previews in Comments */}
-                <div className="mt-3 space-y-3">
-                  {(comment.content.match(/(https?:\/\/[^\s]+)/g) || []).map((url: string, idx: number) => {
-                    const yid = extractYoutubeId(url)
-                    if (!yid) return null
-                    return (
-                      <div key={`yt-${idx}`} className="rounded-2xl overflow-hidden border border-gray-100 aspect-video relative group/video shadow-sm bg-black">
-                        <iframe
-                          src={`https://www.youtube.com/embed/${yid}`}
-                          className="w-full h-full"
-                          allowFullScreen
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        />
-                      </div>
-                    )
-                  })}
-
-                  {(comment.content.match(/(https?:\/\/[^\s]+)/g) || []).map((url: string, idx: number) => {
-                    const spotify = extractSpotifyId(url)
-                    if (!spotify) return null
-                    return (
-                      <div key={`spotify-${idx}`} className="rounded-xl overflow-hidden border border-gray-100 bg-white mt-2">
-                        <iframe
-                          src={`https://open.spotify.com/embed/${spotify.type}/${spotify.id}?utm_source=generator&theme=0`}
-                          width="100%"
-                          height={spotify.type === 'track' ? "80" : "152"}
-                          frameBorder="0"
-                          allowFullScreen
-                          allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                          loading="lazy"
-                          className="block"
-                        />
-                      </div>
-                    )
-                  })}
-
-                  {commentLinkMetas[comment.id]?.filter(meta => !extractYoutubeId(meta.url) && !extractSpotifyId(meta.url)).map((meta, idx) => (
-                    <a
-                      key={idx}
-                      href={meta.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex rounded-xl border border-gray-100 overflow-hidden hover:bg-gray-50/50 transition-all group/link bg-white shadow-sm max-w-full"
-                    >
-                      {meta.image && (
-                        <div className="w-16 h-16 lg:w-24 lg:h-24 shrink-0 overflow-hidden border-r border-gray-50">
-                          <img src={meta.image} className="w-full h-full object-cover group-hover/link:scale-105 transition-transform duration-500" alt="" />
-                        </div>
-                      )}
-                      <div className="p-2 lg:p-2.5 flex-1 min-w-0 flex flex-col justify-center">
-                        <div className="flex items-center gap-1.5 text-[10px] text-gray-400 mb-0.5 font-bold uppercase tracking-wider">
-                          <LinkIcon className="w-3 h-3" /> {(meta as any).domain || extractDomain(meta.url)}
-                        </div>
-                        <h4 className="font-bold text-gray-900 text-[12px] lg:text-[13px] line-clamp-1 group-hover/link:text-primary transition-colors">{meta.title || meta.url}</h4>
-                        {meta.description && <p className="text-[11px] lg:text-[12px] text-gray-500 line-clamp-2 mt-0.5 leading-tight">{meta.description}</p>}
-                      </div>
-                    </a>
-                  ))}
-                </div>
+                {/* Link & Video Previews in Comments - Unified Component */}
+                {(() => {
+                  const urls = comment.content.match(/(https?:\/\/[^\s]+)/g) || []
+                  if (urls.length === 0) return null
+                  const uniqueUrls = Array.from(new Set(urls)) as string[]
+                  return (
+                    <div className="mt-3 space-y-3">
+                      {uniqueUrls.map((url, idx) => (
+                        <LinkPreviewCard key={`comment-link-${idx}`} url={url} />
+                      ))}
+                    </div>
+                  )
+                })()}
               </div>
             )}
             

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, MessageCircle, Send, SendHorizontal, Link as LinkIcon, ExternalLink } from 'lucide-react'
+import { ArrowLeft, MessageCircle, Send, SendHorizontal, Link as LinkIcon, ExternalLink, Eye, Share2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/authStore'
 import Sidebar from '@/components/Sidebar'
@@ -43,7 +43,11 @@ export default function BlogDetailPage() {
         setBlog(data)
         
         // Fetch comments after blog loads
-        if (data) fetchComments(data.id)
+        if (data) {
+          fetchComments(data.id)
+          // Increment views
+          await supabase.rpc('increment_blog_views', { blog_id: data.id })
+        }
       } catch (err) {
         console.error('Error fetching blog:', err)
       } finally {
@@ -123,6 +127,26 @@ export default function BlogDetailPage() {
     ))
   }
 
+  const handleShare = async () => {
+    if (!blog) return
+    const shareData = {
+      title: blog.title,
+      text: `Read this article on KeyYap: ${blog.title}`,
+      url: window.location.href
+    }
+    
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData)
+      } else {
+        await navigator.clipboard.writeText(window.location.href)
+        alert('Link copied to clipboard!')
+      }
+    } catch (err) {
+      console.error('Error sharing:', err)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-white">
@@ -163,20 +187,36 @@ export default function BlogDetailPage() {
             </div>
 
             <article className="px-4 py-8">
-              {/* Author Info */}
-              <div className="flex items-center gap-3 mb-6">
-                <Avatar 
-                  url={blog.profiles?.avatar_url || undefined} 
-                  username={blog.profiles?.username} 
-                  size="md" 
-                />
-                <div>
-                  <div className="font-black text-gray-900 leading-none mb-1">
-                    {blog.profiles?.full_name || 'Admin'}
+              {/* Author Info & Actions */}
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <Avatar 
+                    url={blog.profiles?.avatar_url || undefined} 
+                    username={blog.profiles?.username} 
+                    size="md" 
+                  />
+                  <div>
+                    <div className="font-black text-gray-900 leading-none mb-1">
+                      {blog.profiles?.full_name || 'Admin'}
+                    </div>
+                    <div className="text-[13px] text-gray-500 font-medium">
+                      {formatDate(blog.created_at)}
+                    </div>
                   </div>
-                  <div className="text-[13px] text-gray-500 font-medium">
-                    Posted on {formatDate(blog.created_at)}
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-1.5 text-gray-400 font-bold text-[13px] bg-gray-50 px-3 py-1.5 rounded-full">
+                    <Eye className="w-4 h-4" />
+                    {blog.views || 0}
                   </div>
+                  <button 
+                    onClick={handleShare}
+                    className="flex items-center gap-2 text-gray-600 font-bold text-[13px] hover:bg-gray-100 px-3 py-1.5 rounded-full transition-all border border-gray-100"
+                  >
+                    <Share2 className="w-4 h-4 text-orange-500" />
+                    Share
+                  </button>
                 </div>
               </div>
 

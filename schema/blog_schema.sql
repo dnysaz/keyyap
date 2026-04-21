@@ -26,6 +26,11 @@ BEGIN
         ALTER TABLE public.blogs ADD COLUMN status TEXT DEFAULT 'published' CHECK (status IN ('draft', 'published'));
     END IF;
 
+    -- Tambah View Count
+    IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'blogs' AND COLUMN_NAME = 'views') THEN
+        ALTER TABLE public.blogs ADD COLUMN views INTEGER DEFAULT 0;
+    END IF;
+
     -- Update Batas Karakter Konten (Hapus constraint lama jika ada)
     ALTER TABLE public.blogs ALTER COLUMN content TYPE TEXT;
     ALTER TABLE public.blogs DROP CONSTRAINT IF EXISTS blogs_content_check;
@@ -83,6 +88,16 @@ CREATE TRIGGER update_blogs_timestamp
     BEFORE UPDATE ON public.blogs
     FOR EACH ROW
     EXECUTE FUNCTION update_blogs_updated_at();
+
+-- 7. Fungsi RPC untuk Increment Views (Aman)
+CREATE OR REPLACE FUNCTION increment_blog_views(blog_id UUID)
+RETURNS VOID AS $$
+BEGIN
+    UPDATE public.blogs
+    SET views = COALESCE(views, 0) + 1
+    WHERE id = blog_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 7. Sinkronisasi Storage Storage (Bucket Blogs)
 INSERT INTO storage.buckets (id, name, public) 

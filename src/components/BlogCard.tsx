@@ -53,7 +53,7 @@ export default function BlogCard({ blog }: BlogCardProps) {
 
           {/* Blog Title */}
           <Link href={`/blog/${blog.slug}`} className="block mt-1 group-hover:text-primary transition-colors">
-            <h2 className="text-xl md:text-2xl font-black text-gray-900 leading-tight">
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 leading-tight">
               {blog.title}
             </h2>
           </Link>

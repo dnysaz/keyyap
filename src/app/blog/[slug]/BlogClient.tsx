@@ -196,7 +196,7 @@ export default function BlogClient({ initialBlog }: { initialBlog: any }) {
                 </div>
               </div>
 
-              <h1 className="text-3xl md:text-4xl font-black text-gray-900 leading-tight mb-6">{blog.title}</h1>
+              <h1 className="text-3xl md:text-4xl font-bold text-gray-900 leading-tight mb-6">{blog.title}</h1>
               {blog.image_url && (
                 <div className="rounded-2xl overflow-hidden border border-gray-100 mb-8 bg-gray-50">
                   <img src={blog.image_url} alt={blog.title} className="w-full h-auto object-cover" />

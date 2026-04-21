@@ -1,265 +1,53 @@
-'use client'
-
-import { useState, useEffect, useRef } from 'react'
-import { useParams, useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { ArrowLeft, MessageCircle, Send, SendHorizontal, Link as LinkIcon, ExternalLink, Eye, Share2, Check, Copy } from 'lucide-react'
+import { Metadata } from 'next'
 import { supabase } from '@/lib/supabase'
-import { useAuthStore } from '@/stores/authStore'
-import Sidebar from '@/components/Sidebar'
-import RightSidebar from '@/components/RightSidebar'
-import Navigation from '@/components/Navigation'
-import Avatar from '@/components/Avatar'
-import { formatDate } from '@/lib/utils'
-import { escapeHtml } from '@/lib/sanitize'
-import { PostDetailSkeleton } from '@/components/Skeleton'
-import LinkPreviewCard from '@/components/LinkPreviewCard'
+import BlogClient from './BlogClient'
+import Link from 'next/link'
 
-export default function BlogDetailPage() {
-  const params = useParams()
-  const router = useRouter()
-  const slug = params.slug as string
-  const { user, profile: currentProfile } = useAuthStore()
-  
-  const [blog, setBlog] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [comments, setComments] = useState<any[]>([])
-  const [newComment, setNewComment] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [replyTo, setReplyTo] = useState<any>(null)
-  const [copied, setCopied] = useState(false)
-  
-  const commentInputRef = useRef<HTMLTextAreaElement>(null)
+interface Props {
+  params: { slug: string }
+}
 
-  useEffect(() => {
-    async function fetchBlog() {
-      try {
-        const { data, error } = await supabase
-          .from('blogs')
-          .select('*, profiles(id, username, full_name, avatar_url)')
-          .eq('status', 'published')
-          .eq('slug', slug)
-          .single()
+// 1. DYNAMIC SEO METADATA (Runs on Server)
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { data: blog } = await supabase
+    .from('blogs')
+    .select('title, content, image_url')
+    .eq('slug', params.slug)
+    .single()
 
-        if (error) throw error
-        setBlog(data)
-        
-        // Fetch comments after blog loads
-        if (data) {
-          fetchComments(data.id)
-          // Increment views
-          await supabase.rpc('increment_blog_views', { blog_id: data.id })
-        }
-      } catch (err) {
-        console.error('Error fetching blog:', err)
-      } finally {
-        setLoading(false)
-      }
-    }
+  if (!blog) return { title: 'Blog Post Not Found - KeyYap' }
 
-    fetchBlog()
-  }, [slug])
+  // Clean description from HTML
+  const description = blog.content
+    ? blog.content.replace(/<[^>]*>/g, '').substring(0, 160) + '...'
+    : 'Read this interesting blog post on KeyYap.'
 
-  async function fetchComments(blogId: string) {
-    try {
-      const { data, error } = await supabase
-        .from('comments')
-        .select('*, profiles(id, username, full_name, avatar_url)')
-        .eq('blog_id', blogId)
-        .eq('is_deleted', false)
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-      setComments(data || [])
-    } catch (err) {
-      console.error('Error fetching comments:', err)
-    }
-  }
-
-  async function handleSubmitComment(e?: any) {
-    if (e?.preventDefault) e.preventDefault()
-    if (!user || !newComment.trim() || !blog) return
-
-    setIsSubmitting(true)
-    const content = newComment.trim()
-    setNewComment('')
-
-    try {
-      const { error } = await supabase.from('comments').insert({
-        user_id: user.id,
-        blog_id: blog.id,
-        post_id: null,
-        content: content,
-        parent_id: replyTo?.id || null
-      })
-
-      if (error) throw error
-      setReplyTo(null)
-      await fetchComments(blog.id)
-    } catch (err) {
-      console.error('Error adding comment:', err)
-      setNewComment(content) // Restore on error
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  // Recursive Comment Component
-  const CommentItem = ({ comment, allComments, level = 0 }: { comment: any, allComments: any[], level?: number }) => {
-    const replies = allComments.filter(c => c.parent_id === comment.id)
-    
-    return (
-      <div className={`${level > 0 ? 'ml-10 mt-4 border-l-2 border-gray-50 pl-4' : 'p-4'} hover:bg-gray-50/30 transition-colors`}>
-        <div className="flex gap-3">
-          <Link href={`/u/${comment.profiles?.username}`}>
-            <Avatar url={comment.profiles?.avatar_url || undefined} username={comment.profiles?.username} size={level > 0 ? "xs" : "sm"} />
-          </Link>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 mb-1">
-              <span className="font-bold text-[14px] text-gray-900">{comment.profiles?.full_name || comment.profiles?.username}</span>
-              <span className="text-gray-400 text-[12px]">· {formatDate(comment.created_at)}</span>
-            </div>
-            
-            <div className="text-[15px] text-gray-800 leading-relaxed break-words font-medium mb-3">
-              {formatContent(comment.content)}
-            </div>
-
-            {/* Link Preview in Comment */}
-            {(() => {
-              const urls = comment.content.match(/https?:\/\/[^\s<>"]+/g);
-              if (urls && urls.length > 0) {
-                return (
-                  <div className="mb-4">
-                    {Array.from(new Set(urls)).slice(0, 1).map((url: any, i) => (
-                      <LinkPreviewCard key={i} url={url} />
-                    ))}
-                  </div>
-                )
-              }
-              return null;
-            })()}
-
-            <div className="flex items-center gap-4">
-               {level < 1 && (
-                 <button 
-                    onClick={() => {
-                      setReplyTo(comment)
-                      commentInputRef.current?.focus()
-                    }}
-                    className="text-[12px] font-bold text-gray-400 hover:text-orange-500 transition-colors"
-                 >
-                    Reply
-                 </button>
-               )}
-            </div>
-
-            {/* Render Replies */}
-            {replies.length > 0 && (
-              <div className="mt-2">
-                {replies.map(reply => (
-                  <CommentItem key={reply.id} comment={reply} allComments={allComments} level={level + 1} />
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  function formatContent(content: string, isRichText: boolean = false) {
-    if (!content) return null
-    
-    if (isRichText) {
-      // Auto-link URLs in plain text safely
-      const autoLinked = content.replace(/(?<!href=")(https?:\/\/[^\s<>"]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
-      
-      return (
-        <div className="prose prose-orange max-w-none prose-p:leading-relaxed prose-pre:bg-gray-900 prose-pre:text-white prose-img:rounded-2xl break-words overflow-hidden font-normal text-gray-800">
-           <div id="blog-article-content" className="blog-content-inner" dangerouslySetInnerHTML={{ __html: autoLinked }} />
-           
-           <style jsx global>{`
-              .blog-content-inner a {
-                color: #f97316 !important;
-                font-weight: 800 !important;
-                text-decoration: none !important;
-              }
-              .blog-content-inner a:hover {
-                text-decoration: underline !important;
-              }
-              .blog-content-inner p {
-                 margin-bottom: 1.25rem !important;
-              }
-              .blog-content-inner ul, .blog-content-inner ol {
-                 margin-bottom: 1.25rem !important;
-                 padding-left: 1.5rem !important;
-              }
-              .blog-content-inner li {
-                 margin-bottom: 0.5rem !important;
-                 list-style-type: disc !important;
-              }
-           `}</style>
-        </div>
-      )
-    }
-
-    let formatted = escapeHtml(content)
-      .replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">$1</a>')
-      .replace(/@(\w+)/g, '<a href="/u/$1" class="text-primary font-bold hover:underline">@$1</a>')
-      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    
-    return formatted.split('\n').map((line, i) => (
-      <span key={i} className="block min-h-[1.2rem]">
-        <span dangerouslySetInnerHTML={{ __html: line }} />
-      </span>
-    ))
-  }
-
-  const handleShare = async () => {
-    if (!blog) return
-    const shareData = {
+  return {
+    title: `${blog.title} - KeyYap`,
+    description: description,
+    openGraph: {
       title: blog.title,
-      text: `Read this article on KeyYap: ${blog.title}`,
-      url: window.location.href
-    }
-    
-    try {
-      if (navigator.share) {
-        await navigator.share(shareData)
-        // Increment shares on real share
-        await supabase.rpc('increment_blog_shares', { blog_id: blog.id })
-      } else {
-        handleCopy()
-      }
-    } catch (err) {
-      console.error('Error sharing:', err)
-    }
+      description: description,
+      images: blog.image_url ? [blog.image_url] : ['/og-image.png'],
+      type: 'article',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: blog.title,
+      description: description,
+      images: blog.image_url ? [blog.image_url] : ['/og-image.png'],
+    },
   }
+}
 
-  const handleCopy = async () => {
-    if (!blog) return
-    try {
-      await navigator.clipboard.writeText(window.location.href)
-      setCopied(true)
-      await supabase.rpc('increment_blog_shares', { blog_id: blog.id })
-      setTimeout(() => setCopied(false), 2000)
-    } catch (err) {
-      console.error('Error copying:', err)
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-white">
-        <Sidebar />
-        <div className="lg:ml-[72px] xl:ml-[260px] flex justify-center">
-            <div className="w-full max-w-2xl px-4 py-8">
-                <PostDetailSkeleton />
-            </div>
-        </div>
-      </div>
-    )
-  }
+// 2. SERVER COMPONENT (Fetches Initial Data)
+export default async function BlogDetailPage({ params }: Props) {
+  const { data: blog } = await supabase
+    .from('blogs')
+    .select('*, profiles(id, username, full_name, avatar_url)')
+    .eq('status', 'published')
+    .eq('slug', params.slug)
+    .single()
 
   if (!blog) {
     return (
@@ -270,180 +58,6 @@ export default function BlogDetailPage() {
     )
   }
 
-  return (
-    <div className="min-h-screen bg-white">
-      <Sidebar />
-      <div className="lg:ml-[72px] xl:ml-[260px] flex justify-center">
-        <div className="flex w-full max-w-[1050px] min-w-0 items-start">
-          <main className="flex-1 max-w-2xl w-full border-x border-gray-100 min-h-screen bg-white">
-            {/* Header / Back */}
-            <div className="sticky top-0 z-20 flex items-center gap-6 px-4 py-3 bg-white/80 backdrop-blur-md border-b border-gray-50">
-              <button 
-                onClick={() => router.back()}
-                className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5 text-gray-900" />
-              </button>
-              <h1 className="text-xl font-black text-gray-900 truncate">Article</h1>
-            </div>
-
-            <article className="px-4 py-8">
-              {/* Author Info & Actions */}
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <Avatar 
-                    url={blog.profiles?.avatar_url || undefined} 
-                    username={blog.profiles?.username} 
-                    size="md" 
-                  />
-                  <div>
-                    <div className="font-black text-gray-900 leading-none mb-1">
-                      {blog.profiles?.full_name || 'Admin'}
-                    </div>
-                    <div className="text-[13px] text-gray-500 font-medium">
-                      {formatDate(blog.created_at)}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1.5 text-gray-400 font-bold text-[13px] bg-gray-50 px-3 py-1.5 rounded-full">
-                    <Eye className="w-4 h-4" />
-                    {blog.views || 0}
-                  </div>
-                  <div className="flex items-center gap-1.5 text-gray-400 font-bold text-[13px] bg-gray-50 px-3 py-1.5 rounded-full">
-                    <Share2 className="w-4 h-4" />
-                    {blog.shares || 0}
-                  </div>
-                  <button 
-                    onClick={handleCopy}
-                    className={`flex items-center gap-2 font-bold text-[13px] px-3 py-1.5 rounded-full transition-all border ${copied ? 'bg-orange-500 border-orange-500 text-white' : 'text-gray-600 border-gray-100 hover:bg-gray-100'}`}
-                  >
-                    {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4 text-orange-500" />}
-                    {copied ? 'Copied!' : 'Copy Link'}
-                  </button>
-                </div>
-              </div>
-
-              {/* Title */}
-              <h1 className="text-3xl md:text-4xl font-black text-gray-900 leading-tight mb-6">
-                {blog.title}
-              </h1>
-
-              {/* Image */}
-              {blog.image_url && (
-                <div className="rounded-2xl overflow-hidden border border-gray-100 mb-8 bg-gray-50">
-                  <img 
-                    src={blog.image_url} 
-                    alt={blog.title} 
-                    className="w-full h-auto object-cover"
-                  />
-                </div>
-              )}
-
-              {/* Content body */}
-              <div className="blog-content w-full">
-                {formatContent(blog.content, true)}
-              </div>
-
-              {/* Link Previews Section - Ensuring they appear */}
-              {(() => {
-                const cleanText = blog.content.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ');
-                const urls = cleanText.match(/https?:\/\/[^\s<>"]+/g);
-                if (urls && urls.length > 0) {
-                  const uniqueUrls = Array.from(new Set(urls));
-                  return (
-                    <div className="mt-12 space-y-4 border-t border-gray-50 pt-8">
-                       <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-4">Linked Sources</p>
-                       {uniqueUrls.map((url: any, idx) => (
-                         <LinkPreviewCard key={idx} url={url} />
-                       ))}
-                    </div>
-                  );
-                }
-                return null;
-              })()}
-            </article>
-
-            {/* Comments Section */}
-            <div className="border-t border-gray-100 mt-8">
-              <div className="p-4 border-b border-gray-50 bg-gray-50/30 flex items-center justify-between">
-                <h3 className="font-black text-gray-900 flex items-center gap-2">
-                  <MessageCircle className="w-5 h-5" />
-                  Discussions ({comments.length})
-                </h3>
-              </div>
-
-              {/* Comment Input */}
-              {user ? (
-                <div className="p-4 border-b border-gray-100">
-                  <div className="flex gap-3">
-                    <Avatar url={currentProfile?.avatar_url || undefined} username={currentProfile?.username} size="sm" />
-                    <div className="flex-1">
-                      {replyTo && (
-                        <div className="mb-2 flex items-center justify-between bg-orange-50 px-3 py-1.5 rounded-lg border border-orange-100">
-                          <p className="text-[12px] text-orange-600 font-medium">
-                            Replying to <span className="font-bold">@{replyTo.profiles?.username}</span>
-                          </p>
-                          <button onClick={() => setReplyTo(null)} className="text-orange-400 hover:text-orange-600">
-                            <ArrowLeft className="w-3 h-3 rotate-90" />
-                          </button>
-                        </div>
-                      )}
-                      <textarea
-                        ref={commentInputRef}
-                        placeholder={replyTo ? "Write your reply..." : "Write your thoughts..."}
-                        value={newComment}
-                        onChange={(e) => {
-                            setNewComment(e.target.value)
-                            e.target.style.height = 'auto'
-                            e.target.style.height = `${e.target.scrollHeight}px`
-                        }}
-                        className="w-full bg-transparent text-[15px] text-gray-900 placeholder-gray-400 focus:outline-none resize-none min-h-[40px] max-h-[300px] py-1.5"
-                      />
-                      <div className="flex justify-end mt-3 border-t border-gray-50 pt-3">
-                        <button
-                          disabled={!newComment.trim() || isSubmitting}
-                          onClick={handleSubmitComment}
-                          className="bg-primary text-white p-2.5 rounded-full hover:bg-primary-hover transition-all disabled:opacity-50 shadow-md active:scale-95"
-                        >
-                          <SendHorizontal className="w-5 h-5" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="p-8 text-center bg-gray-50/50">
-                  <p className="text-gray-500 mb-4 font-medium">Join the discussion</p>
-                  <Link href="/login" className="px-6 py-2.5 bg-primary text-white rounded-full font-black text-sm hover:bg-primary-hover shadow-sm">
-                    Log In to Comment
-                  </Link>
-                </div>
-              )}
-
-              {/* Comments List */}
-              <div className="divide-y divide-gray-50 pb-[100px]">
-                {comments.length === 0 ? (
-                  <div className="py-12 text-center">
-                    <p className="text-gray-400 font-bold">Be the first to yap about this article! ✨</p>
-                  </div>
-                ) : (
-                  <div className="divide-y divide-gray-50">
-                    {comments.filter(c => !c.parent_id).map((comment) => (
-                      <CommentItem key={comment.id} comment={comment} allComments={comments} />
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </main>
-          <RightSidebar />
-        </div>
-      </div>
-      <div className="lg:hidden">
-        <Navigation />
-      </div>
-    </div>
-  )
+  // Render Client Component and pass the data
+  return <BlogClient initialBlog={blog} />
 }

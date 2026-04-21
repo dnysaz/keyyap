@@ -171,42 +171,32 @@ export default function BlogDetailPage() {
     if (!content) return null
     
     if (isRichText) {
-      // Split content by paragraphs for precise inline placement
-      const paragraphs = content.split('</p>')
+      // Auto-link URLs in plain text safely
+      const autoLinked = content.replace(/(?<!href=")(https?:\/\/[^\s<>"]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
       
       return (
         <div className="prose prose-orange max-w-none prose-p:leading-relaxed prose-pre:bg-gray-900 prose-pre:text-white prose-img:rounded-2xl break-words overflow-hidden font-normal text-gray-800">
-           {paragraphs.map((p, i) => {
-              if (!p.trim() || p === '<p><br>') return null;
-              const paragraphHtml = p + '</p>';
-              
-              // Auto-link URLs
-              const autoLinked = paragraphHtml.replace(/(?<!href=")(https?:\/\/[^\s<>"]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
-              
-              // Detect URLs for preview
-              const urls = paragraphHtml.match(/https?:\/\/[^\s<>"]+/g);
-              
-              return (
-                <div key={i} className="mb-4 last:mb-0">
-                   <div dangerouslySetInnerHTML={{ __html: autoLinked }} />
-                   {urls && Array.from(new Set(urls)).map((url, urlIdx) => (
-                      <LinkPreviewCard key={urlIdx} url={url} />
-                   ))}
-                </div>
-              )
-           })}
+           <div id="blog-article-content" className="blog-content-inner" dangerouslySetInnerHTML={{ __html: autoLinked }} />
            
            <style jsx global>{`
-              .prose a {
+              .blog-content-inner a {
                 color: #f97316 !important;
                 font-weight: 800 !important;
                 text-decoration: none !important;
               }
-              .prose a:hover {
+              .blog-content-inner a:hover {
                 text-decoration: underline !important;
               }
-              .prose p {
-                margin: 0 !important;
+              .blog-content-inner p {
+                 margin-bottom: 1.25rem !important;
+              }
+              .blog-content-inner ul, .blog-content-inner ol {
+                 margin-bottom: 1.25rem !important;
+                 padding-left: 1.5rem !important;
+              }
+              .blog-content-inner li {
+                 margin-bottom: 0.5rem !important;
+                 list-style-type: disc !important;
               }
            `}</style>
         </div>
@@ -351,10 +341,28 @@ export default function BlogDetailPage() {
                 </div>
               )}
 
-              {/* Content with Precise Inline Previews */}
+              {/* Content body */}
               <div className="blog-content w-full">
                 {formatContent(blog.content, true)}
               </div>
+
+              {/* Link Previews Section - Ensuring they appear */}
+              {(() => {
+                const cleanText = blog.content.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ');
+                const urls = cleanText.match(/https?:\/\/[^\s<>"]+/g);
+                if (urls && urls.length > 0) {
+                  const uniqueUrls = Array.from(new Set(urls));
+                  return (
+                    <div className="mt-12 space-y-4 border-t border-gray-50 pt-8">
+                       <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-4">Linked Sources</p>
+                       {uniqueUrls.map((url: any, idx) => (
+                         <LinkPreviewCard key={idx} url={url} />
+                       ))}
+                    </div>
+                  );
+                }
+                return null;
+              })()}
             </article>
 
             {/* Comments Section */}

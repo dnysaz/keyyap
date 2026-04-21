@@ -45,20 +45,26 @@ END $$;
 -- 3. Sinkronisasi Tabel Comments (Link ke Blog)
 DO $$ 
 BEGIN 
+    -- Tambah Blog ID
     IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'comments' AND COLUMN_NAME = 'blog_id') THEN
         ALTER TABLE public.comments ADD COLUMN blog_id UUID REFERENCES public.blogs(id);
-        
-        -- Tambah Parent ID untuk Nested Comments
-        ALTER TABLE public.comments ADD COLUMN parent_id UUID REFERENCES public.comments(id) ON DELETE CASCADE;
-
-        -- Constraint: Komentar hanya boleh ke Post ATAU Blog, tidak keduanya
-        ALTER TABLE public.comments DROP CONSTRAINT IF EXISTS comments_target_check;
-        ALTER TABLE public.comments ADD CONSTRAINT comments_target_check 
-            CHECK (
-                (post_id IS NOT NULL AND blog_id IS NULL) OR 
-                (post_id IS NULL AND blog_id IS NOT NULL)
-            );
     END IF;
+    
+    -- Tambah Parent ID secara terpisah
+    IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'comments' AND COLUMN_NAME = 'parent_id') THEN
+        ALTER TABLE public.comments ADD COLUMN parent_id UUID REFERENCES public.comments(id) ON DELETE CASCADE;
+    END IF;
+
+    -- IZINKAN post_id MENJADI NULL (PENTING untuk sistem blog)
+    ALTER TABLE public.comments ALTER COLUMN post_id DROP NOT NULL;
+
+    -- Constraint: Komentar hanya boleh ke Post ATAU Blog
+    ALTER TABLE public.comments DROP CONSTRAINT IF EXISTS comments_target_check;
+    ALTER TABLE public.comments ADD CONSTRAINT comments_target_check 
+        CHECK (
+            (post_id IS NOT NULL AND blog_id IS NULL) OR 
+            (post_id IS NULL AND blog_id IS NOT NULL)
+        );
 END $$;
 
 -- 4. Aktifkan RLS dan Sinkronisasi Policy

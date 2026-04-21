@@ -213,7 +213,7 @@ export default function BlogDetailPage() {
                 }
               `}</style>
 
-              {/* Integrated Visual Link Previews */}
+              {/* Integrated Visual Link Previews - Feed Style */}
               {(() => {
                 const cleanText = blog.content.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ');
                 const urls = cleanText.match(/https?:\/\/[^\s<>"]+/g);
@@ -225,16 +225,21 @@ export default function BlogDetailPage() {
                           key={idx}
                           href={url}
                           target="_blank"
-                          className="flex items-center gap-4 p-4 bg-gray-50/50 hover:bg-orange-50/30 rounded-2xl border border-gray-100 transition-all group"
+                          rel="noopener noreferrer"
+                          className="flex gap-4 p-0 bg-white hover:bg-gray-50 rounded-2xl border border-gray-100 transition-all group overflow-hidden"
                         >
-                          <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center text-gray-300 group-hover:text-orange-500 transition-colors">
-                            <LinkIcon className="w-6 h-6" />
+                          {/* Fake OG Image Placeholder */}
+                          <div className="w-24 md:w-32 bg-gray-100 flex items-center justify-center shrink-0 border-r border-gray-50">
+                            <LinkIcon className="w-6 h-6 text-gray-300 group-hover:text-orange-500 transition-colors" />
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[14px] font-bold text-gray-900 truncate">{url}</p>
-                            <p className="text-[11px] text-gray-400 font-medium">Click to visit external link</p>
+                          
+                          <div className="flex-1 py-3 pr-4 min-w-0 flex flex-col justify-center">
+                            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1 italic">Reference Link</p>
+                            <p className="text-[14px] font-bold text-orange-500 truncate group-hover:underline">
+                              {url}
+                            </p>
+                            <p className="text-[12px] text-gray-500 line-clamp-1 mt-0.5">Click to view the original source and context.</p>
                           </div>
-                          <ExternalLink className="w-4 h-4 text-gray-300 group-hover:text-orange-500" />
                         </a>
                       ))}
                     </div>

@@ -88,6 +88,7 @@ export default function BlogDetailPage() {
       const { error } = await supabase.from('comments').insert({
         user_id: user.id,
         blog_id: blog.id,
+        post_id: null,
         content: content,
         parent_id: replyTo?.id || null
       })

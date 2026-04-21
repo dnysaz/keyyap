@@ -13,6 +13,7 @@ import Avatar from '@/components/Avatar'
 import { formatDate } from '@/lib/utils'
 import { escapeHtml } from '@/lib/sanitize'
 import { PostDetailSkeleton } from '@/components/Skeleton'
+import LinkPreviewCard from '@/components/LinkPreviewCard'
 
 export default function BlogDetailPage() {
   const params = useParams()
@@ -213,7 +214,7 @@ export default function BlogDetailPage() {
                 }
               `}</style>
 
-              {/* Integrated Visual Link Previews - Feed Style */}
+              {/* Integrated Visual Link Previews - Real Feed Style */}
               {(() => {
                 const cleanText = blog.content.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ');
                 const urls = cleanText.match(/https?:\/\/[^\s<>"]+/g);
@@ -221,26 +222,7 @@ export default function BlogDetailPage() {
                   return (
                     <div className="mt-12 space-y-4 border-t border-gray-50 pt-8">
                       {Array.from(new Set(urls)).map((url: any, idx) => (
-                        <a 
-                          key={idx}
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex gap-4 p-0 bg-white hover:bg-gray-50 rounded-2xl border border-gray-100 transition-all group overflow-hidden"
-                        >
-                          {/* Fake OG Image Placeholder */}
-                          <div className="w-24 md:w-32 bg-gray-100 flex items-center justify-center shrink-0 border-r border-gray-50">
-                            <LinkIcon className="w-6 h-6 text-gray-300 group-hover:text-orange-500 transition-colors" />
-                          </div>
-                          
-                          <div className="flex-1 py-3 pr-4 min-w-0 flex flex-col justify-center">
-                            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1 italic">Reference Link</p>
-                            <p className="text-[14px] font-bold text-orange-500 truncate group-hover:underline">
-                              {url}
-                            </p>
-                            <p className="text-[12px] text-gray-500 line-clamp-1 mt-0.5">Click to view the original source and context.</p>
-                          </div>
-                        </a>
+                        <LinkPreviewCard key={idx} url={url} />
                       ))}
                     </div>
                   );

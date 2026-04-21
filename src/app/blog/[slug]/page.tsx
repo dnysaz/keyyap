@@ -171,15 +171,33 @@ export default function BlogDetailPage() {
     if (!content) return null
     
     if (isRichText) {
-      // Auto-link plain text URLs in the HTML content safely
-      const autoLinked = content
-        .replace(/(?<!href=")(https?:\/\/[^\s<>"]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
-
+      // Split content by paragraphs to inject previews inline
+      const paragraphs = content.split('</p>')
+      
       return (
-        <div 
-          className="prose prose-orange max-w-none prose-p:leading-relaxed prose-pre:bg-gray-900 prose-pre:text-white prose-img:rounded-2xl"
-          dangerouslySetInnerHTML={{ __html: autoLinked }} 
-        />
+        <div className="prose prose-orange max-w-none prose-p:leading-relaxed prose-pre:bg-gray-900 prose-pre:text-white prose-img:rounded-2xl break-words overflow-hidden">
+          {paragraphs.map((p, i) => {
+            if (!p.trim()) return null;
+            const paragraphHtml = p + '</p>';
+            
+            // Auto-link URLs in this paragraph
+            const autoLinked = paragraphHtml.replace(/(?<!href=")(https?:\/\/[^\s<>"]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+            
+            // Detect URLs for preview
+            const urls = paragraphHtml.match(/https?:\/\/[^\s<>"]+/g);
+            
+            return (
+              <div key={i}>
+                <div dangerouslySetInnerHTML={{ __html: autoLinked }} />
+                {urls && Array.from(new Set(urls)).map((url, urlIdx) => (
+                   <div key={urlIdx} className="my-6">
+                      <LinkPreviewCard url={url} />
+                   </div>
+                ))}
+              </div>
+            )
+          })}
+        </div>
       )
     }
 
@@ -321,39 +339,10 @@ export default function BlogDetailPage() {
                 </div>
               )}
 
-              {/* Content */}
-              <div className="text-[17px] text-gray-800 leading-relaxed font-medium blog-content">
+              {/* Content with Inline Previews */}
+              <div className="text-[17px] text-gray-800 leading-relaxed font-medium blog-content break-words overflow-hidden w-full">
                 {formatContent(blog.content, true)}
               </div>
-
-              <style jsx global>{`
-                .blog-content a {
-                  color: #f97316 !important;
-                  font-weight: 800 !important;
-                  text-decoration: none !important;
-                  transition: all 0.2s;
-                }
-                .blog-content a:hover {
-                  text-decoration: underline !important;
-                  opacity: 0.8;
-                }
-              `}</style>
-
-              {/* Integrated Visual Link Previews - Real Feed Style */}
-              {(() => {
-                const cleanText = blog.content.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ');
-                const urls = cleanText.match(/https?:\/\/[^\s<>"]+/g);
-                if (urls && urls.length > 0) {
-                  return (
-                    <div className="mt-12 space-y-4 border-t border-gray-50 pt-8">
-                      {Array.from(new Set(urls)).map((url: any, idx) => (
-                        <LinkPreviewCard key={idx} url={url} />
-                      ))}
-                    </div>
-                  );
-                }
-                return null;
-              })()}
             </article>
 
             {/* Comments Section */}

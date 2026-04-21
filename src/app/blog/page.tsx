@@ -8,6 +8,7 @@ import Navigation from '@/components/Navigation'
 import BlogCard from '@/components/BlogCard'
 import { FeedSkeleton } from '@/components/Skeleton'
 import MainTabs from '@/components/MainTabs'
+import { RandomSidebarAd } from '@/ads/AdManager'
 
 export default function BlogListPage() {
   const [blogs, setBlogs] = useState<any[]>([])
@@ -58,8 +59,17 @@ export default function BlogListPage() {
                 </div>
               ) : (
                 <div className="divide-y divide-gray-50">
-                  {blogs.map((blog) => (
-                    <BlogCard key={blog.id} blog={blog} />
+                  {blogs.map((blog, idx) => (
+                    <div key={blog.id}>
+                      <BlogCard blog={blog} />
+                      {(idx + 1) % 5 === 0 && idx !== blogs.length - 1 && (
+                        <div className="py-6 px-4 bg-gray-50/50 border-b border-gray-100 flex justify-center">
+                          <div className="w-full max-w-[350px]">
+                            <RandomSidebarAd />
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   ))}
                 </div>
               )}

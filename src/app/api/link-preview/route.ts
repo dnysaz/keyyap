@@ -9,7 +9,20 @@ export async function GET(request: Request) {
   }
 
   try {
-    const response = await fetch(url, { next: { revalidate: 3600 } });
+    // Determine the user agent based on the URL. Some sites (like Twitter/X) only return rich metadata to known bots.
+    const isTwitter = url.includes('twitter.com') || url.includes('x.com');
+    const userAgent = isTwitter 
+      ? 'Mozilla/5.0 (compatible; Discordbot/2.0; +https://discordapp.com)' 
+      : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
+    const response = await fetch(url, { 
+      next: { revalidate: 3600 },
+      headers: {
+        'User-Agent': userAgent,
+        'Accept': 'text/html,application/xhtml+xml',
+        'Accept-Language': 'en-US,en;q=0.9',
+      }
+    });
     const html = await response.text();
 
     const getMeta = (name: string) => {
@@ -18,9 +31,9 @@ export async function GET(request: Request) {
       return match ? match[1] : null;
     };
 
-    const title = getMeta('og:title') || html.match(/<title>([^<]+)<\/title>/i)?.[1] || url;
-    const description = getMeta('og:description') || getMeta('description') || '';
-    const image = getMeta('og:image') || '';
+    const title = getMeta('og:title') || getMeta('twitter:title') || html.match(/<title>([^<]+)<\/title>/i)?.[1] || url;
+    const description = getMeta('og:description') || getMeta('twitter:description') || getMeta('description') || '';
+    const image = getMeta('og:image') || getMeta('twitter:image') || '';
 
     return NextResponse.json({ title, description, image, url });
   } catch (error) {

@@ -50,7 +50,7 @@ export default function LinkPreviewCard({ url }: { url: string }) {
       href={url} 
       target="_blank" 
       rel="noopener noreferrer" 
-      className="flex gap-4 p-0 bg-white hover:bg-gray-50 rounded-2xl border border-gray-100 transition-all group overflow-hidden my-6 shadow-sm ring-1 ring-black/5"
+      className="flex gap-4 p-0 bg-white hover:bg-gray-50 rounded-2xl border border-gray-100 transition-all group overflow-hidden my-4"
     >
       {/* Image Section - Always show something */}
       <div className="w-24 md:w-44 shrink-0 border-r border-gray-50 overflow-hidden bg-gray-50 flex items-center justify-center">

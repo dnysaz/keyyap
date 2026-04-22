@@ -9,11 +9,11 @@ export async function GET(request: Request) {
   }
 
   try {
-    // Determine the user agent based on the URL. Some sites (like Twitter/X) only return rich metadata to known bots.
+    // Use a User-Agent that is commonly whitelisted for link previews
     const isTwitter = url.includes('twitter.com') || url.includes('x.com');
     const userAgent = isTwitter 
       ? 'Mozilla/5.0 (compatible; Discordbot/2.0; +https://discordapp.com)' 
-      : 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)';
+      : 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)';
 
     const response = await fetch(url, { 
       next: { revalidate: 3600 },
@@ -21,8 +21,18 @@ export async function GET(request: Request) {
         'User-Agent': userAgent,
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
+        'Cache-Control': 'no-cache',
       }
     });
+
+    if (!response.ok) {
+      return NextResponse.json({ 
+        title: url, 
+        description: `Source returned ${response.status}. Click to visit.`, 
+        image: '', 
+        url 
+      });
+    }
 
     const html = await response.text();
 
@@ -39,7 +49,11 @@ export async function GET(request: Request) {
       return null;
     };
 
-    let title = getMeta('og:title') || getMeta('twitter:title') || html.match(/<title>([^<]+)<\/title>/i)?.[1] || url;
+    const extractDomain = (url: string) => {
+      try { return new URL(url).hostname; } catch { return url; }
+    };
+
+    let title = getMeta('og:title') || getMeta('twitter:title') || html.match(/<title>([^<]+)<\/title>/i)?.[1] || extractDomain(url);
     const description = getMeta('og:description') || getMeta('twitter:description') || getMeta('description') || '';
     const image = getMeta('og:image') || getMeta('twitter:image') || '';
 

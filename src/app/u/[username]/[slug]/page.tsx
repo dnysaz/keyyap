@@ -82,154 +82,26 @@ function extractInstagramId(url: string): string | null {
   return match ? match[1] : null
 }
 
-function formatContent(content: string, linkMetas: LinkMetadata[], expandedVideo: string | null, onVideoClick: (url: string) => void) {
-  const lines = content.split('\n')
-
-  return lines.map((line, lineIdx) => (
-    <span key={lineIdx}>
-      {line.split(/(https?:\/\/[^\s]+)/g).map((part, partIdx) => {
-        if (part.match(/^(https?:\/\/[^\s]+)$/)) {
-          let meta = null
-          try {
-            const hostname = new URL(part).hostname
-            meta = linkMetas.find(m => part.includes(m.url) || m.url.includes(hostname))
-          } catch {
-            meta = linkMetas.find(m => part.includes(m.url))
-          }
-          const isYoutube = part.includes('youtube.com') || part.includes('youtu.be')
-
-          if (isYoutube) {
-            const videoId = extractYoutubeId(part)
-            return (
-              <iframe
-                key={partIdx}
-                src={`https://www.youtube.com/embed/${videoId}?autoplay=1`}
-                className="w-full max-w-full aspect-video rounded-lg mt-2"
-                allowFullScreen
-                allow="autoplay; encrypted-media"
-              />
-            )
-          }
-
-          const ttId = meta?.tiktok_id || extractTiktokId(part)
-          if (ttId) {
-            return (
-              <div key={partIdx} className="rounded-xl overflow-hidden border border-gray-100 bg-white mt-3 w-full flex items-stretch h-[340px]">
-                <div className="w-[190px] shrink-0 bg-black relative overflow-hidden">
-                  <div className="absolute inset-0 flex items-start justify-start" style={{ width: '325px', height: '580px', transform: 'scale(0.585)', transformOrigin: 'top left' }}>
-                    <iframe
-                      src={`https://www.tiktok.com/embed/v2/${ttId}`}
-                      className="w-full h-full border-0"
-                      allow="autoplay; encrypted-media"
-                      loading="lazy"
-                      scrolling="no"
-                    />
-                  </div>
-                </div>
-                <div className="p-5 flex-1 min-w-0 flex flex-col justify-center bg-gray-50/20">
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <svg className="w-3.5 h-3.5 text-gray-900 fill-current" viewBox="0 0 24 24"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.06-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-1.22-.32-2.57-.3-3.73.3-.54.28-1.03.68-1.39 1.16-.49.63-.69 1.41-.74 2.2-.08 1.5.39 3.03 1.48 4.07 1.08 1.05 2.61 1.49 4.09 1.34 1.28-.15 2.41-.89 3.06-2.02.37-.63.53-1.35.54-2.08v-14.1z"/></svg>
-                    <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">TikTok Content</span>
-                  </div>
-                  <h4 className="font-bold text-[16px] text-gray-900 line-clamp-2 leading-tight">{meta?.title || 'View TikTok'}</h4>
-                  {meta?.description && <p className="text-[13px] text-gray-500 mt-2 line-clamp-4 leading-relaxed">{meta.description}</p>}
-                </div>
-              </div>
-            )
-          }
-
-          const igId = extractInstagramId(part)
-          if (igId) {
-            return (
-              <div key={partIdx} className="rounded-2xl overflow-hidden border border-gray-200 bg-white mt-3 w-full flex items-stretch h-[340px]">
-                <div className="w-[190px] shrink-0 bg-gray-50 border-r border-gray-100">
-                  <iframe
-                    src={`https://www.instagram.com/p/${igId}/embed/captioned/`}
-                    className="w-full h-[450px] border-0 -translate-y-[45px]"
-                    allow="autoplay; encrypted-media"
-                    loading="lazy"
-                    scrolling="no"
-                  />
-                </div>
-                <div className="p-5 flex-1 min-w-0 flex flex-col justify-center bg-gray-50/5">
-                  <div className="flex items-center gap-2 mb-3">
-                     <Instagram className="w-5 h-5 text-pink-500" />
-                     <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Instagram Content</span>
-                  </div>
-                  <h4 className="font-bold text-[16px] text-gray-900 line-clamp-1 no-underline">{meta?.title || 'Instagram Post'}</h4>
-                  {meta?.description && <p className="text-[13px] text-gray-500 mt-2 line-clamp-4 leading-relaxed no-underline">{meta.description}</p>}
-                </div>
-              </div>
-            )
-          }
-
-          const spotify = extractSpotifyId(part)
-          if (spotify) {
-            return (
-              <div key={partIdx} className="rounded-xl overflow-hidden border border-gray-100 bg-white mt-2">
-                <iframe
-                  src={`https://open.spotify.com/embed/${spotify.type}/${spotify.id}?utm_source=generator&theme=0`}
-                  width="100%"
-                  height={spotify.type === 'track' ? "80" : "152"}
-                  frameBorder="0"
-                  allowFullScreen
-                  allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                  loading="lazy"
-                  className="block"
-                />
-              </div>
-            )
-          }
-
-          if (meta) {
-            return (
-              <a
-                key={partIdx}
-                href={part}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex border border-gray-200 rounded-2xl mt-3 hover:bg-gray-50/50 overflow-hidden items-stretch h-[140px] no-underline bg-white"
-              >
-                {meta.image && (
-                  <div className="w-[140px] shrink-0 overflow-hidden border-r border-gray-100 bg-gray-50">
-                    <img src={meta.image} alt={meta.title} className="w-full h-full object-cover" />
-                  </div>
-                )}
-                <div className="p-4 flex-1 min-w-0 flex flex-col justify-center">
-                  <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">{meta.domain}</div>
-                  <div className="font-bold text-[15px] text-gray-900 truncate no-underline">{meta.title}</div>
-                  {meta.description && (
-                    <div className="text-[13px] text-gray-500 mt-1 line-clamp-2 no-underline leading-snug">{meta.description}</div>
-                  )}
-                </div>
-              </a>
-            )
-          }
-
-          return (
-            <a
-              key={partIdx}
-              href={part}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary hover:underline break-all"
-            >
-              {truncateUrl(part)}
-            </a>
-          )
-        }
-
-        // SECURITY: Escape non-URL text to prevent XSS
-        let formatted = escapeHtml(part)
-          .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-          .replace(/\*(.+?)\*/g, '<em>$1</em>')
-          .replace(/__(.+)__/g, '<u>$1</u>')
-
-        formatted = formatted.replace(/@(\w+)/g, '<a href="/u/$1" class="text-primary hover:underline">@$1</a>')
-
-        return <span key={partIdx} dangerouslySetInnerHTML={{ __html: formatted }} />
-      })}
-      {lineIdx < lines.length - 1 && <br />}
+function formatContent(content: string) {
+  if (!content) return null
+  // SECURITY: Escape HTML entities first to prevent XSS injection
+  let formatted = escapeHtml(content)
+      // Detect URLs and Mentions and wrap in <a> tags
+      .replace(/(https?:\/\/[^\s]+)/g, (url) => {
+        const displayUrl = url.length > 40 ? url.substring(0, 40) + '...' : url
+        return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline font-medium">${displayUrl}</a>`
+      })
+      .replace(/@(\w+)/g, (mention) => {
+        const username = mention.substring(1)
+        return `<a href="/u/${username}" class="text-primary hover:underline font-bold">@${username}</a>`
+      })
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      .replace(/__(.+)__/g, '<u>$1</u>')
+    
+  return formatted.split('\n').map((line, i) => (
+    <span key={i} className="block min-h-[1.2em]">
+      <span dangerouslySetInnerHTML={{ __html: line }} />
     </span>
   ))
 }
@@ -269,9 +141,6 @@ export default function PostDetailPage() {
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
   const [editCommentContent, setEditCommentContent] = useState('')
   const [replyingTo, setReplyingTo] = useState<Comment | null>(null)
-  const [linkMetas, setLinkMetas] = useState<LinkMetadata[]>([])
-  const [quotedLinkMetas, setQuotedLinkMetas] = useState<LinkMetadata[]>([])
-  const [commentLinkMetas, setCommentLinkMetas] = useState<Record<string, LinkMetadata[]>>({})
   const [expandedVideo, setExpandedVideo] = useState<string | null>(null)
   const [isLiked, setIsLiked] = useState(false)
   const [likesCount, setLikesCount] = useState(0)
@@ -467,21 +336,7 @@ export default function PostDetailPage() {
         })
     }
 
-    // OPTIMIZED: Fetch link previews asynchronously WITHOUT blocking the state update
-    (async () => {
-      const linkMetaMap: Record<string, LinkMetadata[]> = {}
-      for (const comment of formattedComments) {
-        const urls = comment.content.match(/(https?:\/\/[^\s]+)/g) || []
-        if (urls.length > 0) {
-          try {
-            const response = await fetch(`/api/link-preview?urls=${encodeURIComponent(urls.join(','))}`)
-            const data = await response.json()
-            if (data?.links) linkMetaMap[comment.id] = data.links
-          } catch { }
-        }
-      }
-      setCommentLinkMetas(prev => ({ ...prev, ...linkMetaMap }))
-    })();
+    fetchCommentsForPost(post.id)
   }
 
   // Real-time subscription for comments
@@ -535,38 +390,6 @@ export default function PostDetailPage() {
     }
   }, [post?.id])
 
-  useEffect(() => {
-    async function fetchLinkMetas() {
-      if (!post) return
-      const urls = post.content.match(/(https?:\/\/[^\s]+)/g) || []
-      if (urls.length === 0) return
-      try {
-        const response = await fetch(`/api/link-preview?urls=${encodeURIComponent(urls.join(','))}`)
-        const data = await response.json()
-        if (data?.links) setLinkMetas(data.links)
-      } catch { }
-    }
-
-    async function fetchQuotedLinkMetas() {
-      const qpRaw = (post as any)?.quoted_post
-      const qp = Array.isArray(qpRaw) ? qpRaw[0] : qpRaw
-      if (!qp) return
-
-      const urls = qp.content?.match(/(https?:\/\/[^\s]+)/g) || []
-      if (urls.length === 0) return
-
-      try {
-        const response = await fetch(`/api/link-preview?urls=${encodeURIComponent(urls.join(','))}`)
-        const data = await response.json()
-        if (data?.links) setQuotedLinkMetas(data.links)
-      } catch { }
-    }
-
-    if (post) {
-      fetchLinkMetas()
-      fetchQuotedLinkMetas()
-    }
-  }, [post])
 
   function buildCommentTree(flatComments: Comment[]): Comment[] {
     const map: { [key: string]: Comment } = {}
@@ -918,7 +741,7 @@ export default function PostDetailPage() {
                   const uniqueUrls = Array.from(new Set(urls)) as string[]
                   return (
                     <div className="mt-3 space-y-3">
-                      {uniqueUrls.map((url, idx) => (
+                      {uniqueUrls.map((url: string, idx: number) => (
                         <LinkPreviewCard key={`comment-link-${idx}`} url={url} />
                       ))}
                     </div>
@@ -988,8 +811,21 @@ export default function PostDetailPage() {
               </div>
 
               <div className="mt-4 text-[14px] lg:text-[15px] text-gray-900 leading-relaxed whitespace-pre-wrap break-words">
-                {formatContent(post.content, linkMetas, expandedVideo, handleVideoClick)}
+                {formatContent(post.content)}
               </div>
+
+              {/* Link Previews */}
+              {(() => {
+                const urls = post.content.match(/(https?:\/\/[^\s]+)/g) || []
+                if (urls.length === 0) return null
+                return (
+                  <div className="mt-4 space-y-4">
+                    {Array.from(new Set(urls)).map((url: any, idx: number) => (
+                      <LinkPreviewCard key={idx} url={url as string} />
+                    ))}
+                  </div>
+                )
+              })()}
 
               {/* Quoted Post Box */}
               {(() => {
@@ -1038,41 +874,17 @@ export default function PostDetailPage() {
                     </div>
 
                     {/* Quoted Media Content */}
-                    {quotedLinkMetas.length > 0 && (
-                      <div className="px-4 pb-3 space-y-2 relative z-10">
-                        {quotedLinkMetas.map((link, idx) => {
-                          const ytId = extractYoutubeId(link.url)
-                          if (ytId) {
-                            return (
-                              <div key={idx} className="rounded-xl overflow-hidden border border-gray-100 bg-black aspect-video relative group/qp-video">
-                                <img src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`} className="w-full h-full object-cover opacity-80" alt="" />
-                                <div className="absolute inset-0 flex items-center justify-center pointer-events-auto">
-                                  <Link
-                                    href={`/u/${qpProfile?.username || 'user'}/${getSlug(qp.id, qp.content || '')}`}
-                                    className="w-10 h-10 bg-primary/90 text-white rounded-full flex items-center justify-center hover:scale-110 transition-transform shadow-lg"
-                                  >
-                                    <Play className="w-5 h-5 fill-current translate-x-0.5" />
-                                  </Link>
-                                </div>
-                              </div>
-                            )
-                          }
-                          return (
-                            <div key={idx} className="rounded-xl border border-gray-100 overflow-hidden bg-white flex items-stretch h-16">
-                              {link.image && (
-                                <div className="w-20 shrink-0">
-                                  <img src={link.image} className="w-full h-full object-cover" alt="" />
-                                </div>
-                              )}
-                              <div className="p-2 px-3 flex-1 min-w-0 flex flex-col justify-center">
-                                <h4 className="font-bold text-gray-900 text-[13px] truncate">{link.title || link.url}</h4>
-                                <p className="text-[10px] text-gray-500 line-clamp-1 uppercase font-bold tracking-wider">{extractDomain(link.url)}</p>
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )}
+                    {(() => {
+                      const urls = qp.content?.match(/(https?:\/\/[^\s]+)/g) || []
+                      if (urls.length === 0) return null
+                      return (
+                        <div className="px-4 pb-4 space-y-3 relative z-10">
+                          {Array.from(new Set(urls)).map((url: any, idx: number) => (
+                            <LinkPreviewCard key={`qp-link-${idx}`} url={url as string} />
+                          ))}
+                        </div>
+                      )
+                    })()}
                   </div>
                 )
               })()}

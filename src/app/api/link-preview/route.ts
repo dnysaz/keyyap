@@ -13,29 +13,66 @@ export async function GET(request: Request) {
     const isTwitter = url.includes('twitter.com') || url.includes('x.com');
     const userAgent = isTwitter 
       ? 'Mozilla/5.0 (compatible; Discordbot/2.0; +https://discordapp.com)' 
-      : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+      : 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)';
 
     const response = await fetch(url, { 
       next: { revalidate: 3600 },
       headers: {
         'User-Agent': userAgent,
-        'Accept': 'text/html,application/xhtml+xml',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
       }
     });
+
     const html = await response.text();
 
     const getMeta = (name: string) => {
-      const match = html.match(new RegExp(`<meta[^>]+(?:property|name)="${name}"[^>]+content="([^"]+)"`, 'i')) ||
-                    html.match(new RegExp(`<meta[^>]+content="([^"]+)"[^>]+(?:property|name)="${name}"`, 'i'));
-      return match ? match[1] : null;
+      const regexes = [
+        new RegExp(`<meta[^>]+(?:property|name)=["']${name}["'][^>]+content=["']([^"']+)["']`, 'i'),
+        new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${name}["']`, 'i')
+      ];
+      
+      for (const regex of regexes) {
+        const match = html.match(regex);
+        if (match) return match[1];
+      }
+      return null;
     };
 
-    const title = getMeta('og:title') || getMeta('twitter:title') || html.match(/<title>([^<]+)<\/title>/i)?.[1] || url;
+    let title = getMeta('og:title') || getMeta('twitter:title') || html.match(/<title>([^<]+)<\/title>/i)?.[1] || url;
     const description = getMeta('og:description') || getMeta('twitter:description') || getMeta('description') || '';
     const image = getMeta('og:image') || getMeta('twitter:image') || '';
 
-    return NextResponse.json({ title, description, image, url });
+    // Safety check for generic browser blocks (like Cloudflare)
+    if (title.toLowerCase().includes('just a moment') || title.toLowerCase().includes('checking your browser') || title.toLowerCase().includes('attention required')) {
+      return NextResponse.json({ 
+        title: url, 
+        description: 'Visit the link to view this content.', 
+        image: '', 
+        url 
+      });
+    }
+
+    const decode = (str: string) => {
+      if (!str) return '';
+      return str
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#039;/g, "'")
+        .replace(/&#x27;/g, "'")
+        .replace(/&#x2F;/g, '/')
+        .replace(/&mdash;/g, '—')
+        .replace(/&ndash;/g, '–');
+    };
+
+    return NextResponse.json({ 
+      title: decode(title), 
+      description: decode(description), 
+      image, 
+      url 
+    });
   } catch (error) {
     return NextResponse.json({ error: 'Failed to fetch preview' }, { status: 500 });
   }

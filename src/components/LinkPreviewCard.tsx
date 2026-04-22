@@ -11,7 +11,7 @@ interface LinkPreviewData {
 }
 
 function extractYoutubeId(url: string): string | null {
-  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\s]+)/)
+  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([^?&\s/]+)/)
   return match ? match[1] : null
 }
 
@@ -85,12 +85,12 @@ export default function LinkPreviewCard({ url }: { url: string }) {
   // RICH MEDIA HANDLERS
   if (youtubeId) {
     return (
-      <div className="rounded-2xl overflow-hidden border border-gray-200 bg-black aspect-video relative group/video my-4">
+      <div className="rounded-2xl overflow-hidden border border-gray-100 group-hover/video:border-gray-300 bg-black aspect-video relative group/video my-4 transition-colors">
         {expandedVideo === youtubeId ? (
           <iframe src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1`} className="w-full h-full border-0" allow="autoplay; encrypted-media; fullscreen" />
         ) : (
           <div className="w-full h-full cursor-pointer relative" onClick={() => setExpandedVideo(youtubeId)}>
-            <img src={`https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`} className="w-full h-full object-cover opacity-80" alt="Play Video" />
+            <img src={`https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`} className="w-full h-full object-cover opacity-80" alt="Play Video" />
             <div className="absolute inset-0 flex items-center justify-center bg-black/10 hover:bg-black/20 transition-colors">
               <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center text-white shadow-2xl group-hover/video:scale-110 transition-transform">
                 <Play className="w-8 h-8 fill-current translate-x-1" />
@@ -104,7 +104,7 @@ export default function LinkPreviewCard({ url }: { url: string }) {
 
   if (tiktokId) {
     return (
-      <div className="rounded-2xl overflow-hidden border border-gray-100 bg-white w-full flex items-stretch h-[340px] my-4">
+      <div className="rounded-2xl overflow-hidden border border-gray-100 hover:border-gray-300 bg-white w-full flex items-stretch h-[340px] my-4 transition-colors">
         <div className="w-[190px] shrink-0 bg-black relative overflow-hidden">
           <div className="absolute inset-0 flex items-start justify-start" style={{ width: '325px', height: '580px', transform: 'scale(0.585)', transformOrigin: 'top left' }}>
             <iframe src={`https://www.tiktok.com/embed/v2/${tiktokId}`} className="w-full h-full border-0" allow="autoplay; encrypted-media" loading="lazy" scrolling="no" />
@@ -126,7 +126,7 @@ export default function LinkPreviewCard({ url }: { url: string }) {
 
   if (igId) {
     return (
-      <div className="rounded-2xl overflow-hidden border border-gray-100 bg-white w-full flex items-stretch h-[340px] my-4">
+      <div className="rounded-2xl overflow-hidden border border-gray-100 hover:border-gray-300 bg-white w-full flex items-stretch h-[340px] my-4 transition-colors">
         <div className="w-[190px] shrink-0 bg-gray-50 border-r border-gray-100">
           <iframe src={`https://www.instagram.com/p/${igId}/embed/captioned/`} className="w-full h-[450px] border-0 -translate-y-[45px]" allow="autoplay; encrypted-media" loading="lazy" scrolling="no" />
         </div>
@@ -146,7 +146,7 @@ export default function LinkPreviewCard({ url }: { url: string }) {
 
   if (spotify) {
     return (
-      <div className="rounded-xl overflow-hidden border border-gray-100 bg-white my-4">
+      <div className="rounded-xl overflow-hidden border border-gray-100 hover:border-gray-300 bg-white my-4 transition-colors">
         <iframe src={`https://open.spotify.com/embed/${spotify.type}/${spotify.id}?utm_source=generator&theme=0`} width="100%" height={spotify.type === 'track' ? "80" : "152"} allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy" className="block border-0"/>
       </div>
     )
@@ -161,36 +161,39 @@ export default function LinkPreviewCard({ url }: { url: string }) {
       href={url} 
       target="_blank" 
       rel="noopener noreferrer" 
-      className="flex gap-4 p-0 bg-white hover:bg-gray-50 rounded-2xl border border-gray-100 transition-all group overflow-hidden my-4"
+      className="flex flex-col md:flex-row gap-0 bg-white hover:bg-gray-50/50 rounded-2xl border border-gray-100 group-hover:border-gray-300 transition-all group overflow-hidden my-4"
     >
-      <div className="w-24 md:w-32 shrink-0 border-r border-gray-50 overflow-hidden bg-gray-50 flex items-center justify-center">
+      <div className="w-full md:w-40 h-48 md:h-auto shrink-0 overflow-hidden bg-gray-50 flex items-center justify-center relative border-b md:border-b-0 md:border-r border-gray-100/50">
         {data.image ? (
           <img 
             src={data.image} 
             alt={data.title} 
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
           />
         ) : (
           <div className="flex flex-col items-center gap-1 opacity-20 group-hover:opacity-40 transition-opacity">
-            <LinkIcon className="w-8 h-8 text-orange-500" />
+            <LinkIcon className="w-10 h-10 text-orange-500" />
             <span className="text-[10px] font-black uppercase tracking-tighter">Preview</span>
           </div>
         )}
+        <div className="absolute top-2 right-2 p-1.5 bg-white/90 backdrop-blur-sm rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm">
+          <ExternalLink className="w-3 h-3 text-gray-500" />
+        </div>
       </div>
       
-      <div className="flex-1 py-3 pr-4 flex flex-col justify-center min-w-0">
-        <h4 className="text-[14px] font-black text-gray-900 group-hover:text-orange-500 transition-colors line-clamp-1 mb-1">
-          {data.title || hostname}
-        </h4>
-        <p className="text-[12px] text-gray-500 line-clamp-1 font-medium leading-relaxed mb-2">
-          {data.description || `Visit ${hostname} to see more details and content.`}
-        </p>
-        <div className="flex items-center gap-1.5">
-           <div className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-pulse" />
-           <p className="text-[11px] font-black text-orange-500 truncate uppercase tracking-tight">
+      <div className="flex-1 p-5 md:py-4 md:pr-6 flex flex-col justify-center min-w-0">
+        <div className="flex items-center gap-1.5 mb-2">
+           <div className="w-1.5 h-1.5 bg-orange-500 rounded-full" />
+           <p className="text-[10px] font-bold text-orange-500 truncate uppercase tracking-widest leading-none">
             {hostname}
            </p>
         </div>
+        <h4 className="text-[16px] font-bold text-gray-900 group-hover:text-primary transition-colors line-clamp-2 mb-2 leading-snug">
+          {data.title || hostname}
+        </h4>
+        <p className="text-[13px] text-gray-500 line-clamp-2 md:line-clamp-3 font-medium leading-relaxed">
+          {data.description || `Explore more about ${hostname} and stay updated with their latest content.`}
+        </p>
       </div>
     </a>
   )

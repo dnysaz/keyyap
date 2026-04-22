@@ -49,16 +49,6 @@ interface LinkMetadata {
   tiktok_id?: string | null
 }
 
-function extractYoutubeId(url: string): string | null {
-  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\s]+)/)
-  return match ? match[1] : null
-}
-
-function extractSpotifyId(url: string) {
-  const match = url.match(/https?:\/\/open\.spotify\.com\/(track|album|playlist)\/([a-zA-Z0-9]+)/)
-  if (!match) return null
-  return { type: match[1], id: match[2] }
-}
 
 function extractDomain(url: string): string {
   try {
@@ -75,7 +65,6 @@ export default function PostCard({ post, currentUserId, onLikeChange, reposterUs
   const [likesCount, setLikesCount] = useState(post.likes_count || 0)
   const [repostCount, setRepostCount] = useState(post.shares_count || 0)
   const [isReposted, setIsReposted] = useState(false)
-  const [linkMetas, setLinkMetas] = useState<LinkMetadata[]>([])
   const [isLoadingLike, setIsLoadingLike] = useState(false)
   const [isLoadingRepost, setIsLoadingRepost] = useState(false)
   const [expandedVideo, setExpandedVideo] = useState<string | null>(null)
@@ -120,40 +109,6 @@ export default function PostCard({ post, currentUserId, onLikeChange, reposterUs
 
 
 
-  // Fetch link previews for main post
-  useEffect(() => {
-    if (urls.length > 0) {
-      fetch(`/api/link-preview?urls=${encodeURIComponent(urls.join(','))}`)
-        .then(async (res) => {
-          if (!res.ok) return { links: [] }
-          const contentType = res.headers.get('content-type')
-          if (contentType && contentType.includes('application/json')) {
-            return res.json()
-          }
-          return { links: [] }
-        })
-        .then((data) => setLinkMetas(data.links || []))
-        .catch(err => console.error('Link preview error:', err))
-    }
-  }, [urls.join(',')])
-
-  // Fetch link previews for quoted post
-  const [quotedLinkMetas, setQuotedLinkMetas] = useState<LinkMetadata[]>([])
-  useEffect(() => {
-    if (qpUrls.length > 0) {
-      fetch(`/api/link-preview?urls=${encodeURIComponent(qpUrls.join(','))}`)
-        .then(async (res) => {
-          if (!res.ok) return { links: [] }
-          const contentType = res.headers.get('content-type')
-          if (contentType && contentType.includes('application/json')) {
-            return res.json()
-          }
-          return { links: [] }
-        })
-        .then((data) => setQuotedLinkMetas(data.links || []))
-        .catch(err => console.error('Quoted link preview error:', err))
-    }
-  }, [qpUrls.join(',')])
 
   const handleLike = async () => {
     if (!currentUserId) {

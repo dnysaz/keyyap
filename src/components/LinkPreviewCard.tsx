@@ -101,10 +101,24 @@ export default function LinkPreviewCard({ url }: { url: string }) {
     if (isShorts) {
       return (
         <div className="flex flex-col md:flex-row gap-0 bg-white hover:bg-gray-50/50 rounded-2xl border border-gray-100 group-hover:border-gray-300 transition-all overflow-hidden my-4 min-h-[220px]">
-          <div className="w-full md:w-[140px] h-[280px] md:h-auto shrink-0 bg-black relative overflow-hidden flex items-center justify-center border-b md:border-b-0 md:border-r border-gray-100">
-            <div className="absolute inset-0 flex items-start justify-start" style={{ width: '325px', height: '580px', transform: 'scale(0.48) translate(-170px, -140px)', transformOrigin: 'center' }}>
-              <iframe src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1`} className="w-full h-full border-0" allow="autoplay; encrypted-media; fullscreen" />
-            </div>
+          <div className="w-full md:w-[140px] h-[280px] md:h-auto shrink-0 bg-black relative overflow-hidden flex items-center justify-center border-b md:border-b-0 md:border-r border-gray-100 group/video">
+            {expandedVideo === youtubeId ? (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <iframe src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1`} className="w-[325px] h-[580px] border-0 scale-[0.43] md:scale-[0.5] origin-center" allow="autoplay; encrypted-media; fullscreen" />
+              </div>
+            ) : (
+              <div className="w-full h-full cursor-pointer relative" onClick={() => setExpandedVideo(youtubeId)}>
+                <img src={data?.image || `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`} 
+                  className="w-full h-full object-cover opacity-90 group-hover/video:opacity-100 transition-opacity" 
+                  alt="Short Thumbnail" 
+                />
+                <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover/video:bg-black/20 transition-colors">
+                  <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center text-white shadow-2xl group-hover/video:scale-110 transition-transform">
+                    <Play className="w-6 h-6 fill-current translate-x-0.5" />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
           <div className="flex-1 p-5 md:py-5 md:px-7 flex flex-col justify-center min-w-0">
             <div className="flex items-center gap-1.5 mb-2">
@@ -169,11 +183,33 @@ export default function LinkPreviewCard({ url }: { url: string }) {
 
     return (
       <div className="flex flex-col md:flex-row gap-0 bg-white hover:bg-gray-50/50 rounded-2xl border border-gray-100 group-hover:border-gray-300 transition-all overflow-hidden my-4 min-h-[220px]">
-        <div className="w-full md:w-[140px] h-[280px] md:h-auto shrink-0 bg-black relative overflow-hidden flex items-center justify-center border-b md:border-b-0 md:border-r border-gray-100">
-          <div className="absolute inset-0 flex items-start justify-start" style={{ width: '325px', height: '580px', transform: 'scale(0.48) translate(-170px, -140px)', transformOrigin: 'center' }}>
-            <iframe src={`https://www.tiktok.com/embed/${tiktokId}`} className="w-full h-full border-0" allow="autoplay; encrypted-media" loading="lazy" scrolling="no" />
-          </div>
-          <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/20 to-transparent" />
+        <div className="w-full md:w-[140px] h-[280px] md:h-auto shrink-0 bg-black relative overflow-hidden flex items-center justify-center border-b md:border-b-0 md:border-r border-gray-100 group/video">
+          {expandedVideo === tiktokId ? (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <iframe 
+                src={`https://www.tiktok.com/embed/v2/${tiktokId}`} 
+                className="w-[325px] h-[580px] border-0 scale-[0.43] md:scale-[0.5] origin-center" 
+                allow="autoplay; encrypted-media" 
+                loading="lazy" 
+                scrolling="no" 
+              />
+            </div>
+          ) : (
+            <div className="w-full h-full cursor-pointer relative" onClick={() => setExpandedVideo(tiktokId)}>
+              {data?.image ? (
+                <img src={data.image} className="w-full h-full object-cover opacity-90 group-hover/video:opacity-100 transition-opacity" alt="TikTok Thumbnail" />
+              ) : (
+                <div className="w-full h-full bg-gray-900 flex items-center justify-center">
+                   <TikTokIcon className="w-12 h-12 text-white/20" />
+                </div>
+              )}
+              <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover/video:bg-black/20 transition-colors">
+                <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center text-white shadow-2xl group-hover/video:scale-110 transition-transform">
+                  <Play className="w-6 h-6 fill-current translate-x-0.5" />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
         <div className="flex-1 p-5 md:py-5 md:px-7 flex flex-col justify-center min-w-0">
           <div className="flex items-center gap-1.5 mb-2">

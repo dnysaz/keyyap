@@ -12,18 +12,26 @@ interface LinkPreviewData {
 }
 
 function extractYoutubeId(url: string): string | null {
-  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([^?&\s/]+)/)
-  return match ? match[1] : null
+  if (!url) return null
+  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/|m\.youtube\.com\/watch\?v=|youtube\.com\/v\/|www\.youtube\.com\/watch\?v=|www\.youtube\.com\/shorts\/)([^?&\s/]+)/)
+  if (match) return match[1]
+  
+  const vMatch = url.match(/[?&]v=([^?&\s/]+)/)
+  return vMatch ? vMatch[1] : null
 }
 
 function extractTiktokId(url: string): string | null {
   if (!url) return null
   const match = url.match(/(?:tiktok\.com\/)(?:.*\/video\/|v\/|t\/|vt\/|@[\w.-]+\/video\/)?(\d+)/)
-  return match ? match[1] : null
+  if (match) return match[1]
+  
+  const idMatch = url.match(/\/video\/(\d{15,})/)
+  return idMatch ? idMatch[1] : null
 }
 
 function extractInstagramId(url: string): string | null {
-  const match = url.match(/instagram\.com\/(?:p|reels|reel)\/([A-Za-z0-9_-]+)/)
+  if (!url) return null
+  const match = url.match(/(?:instagram\.com|instagr\.am)\/(?:p|reels|reel|tv)\/([A-Za-z0-9_-]+)/)
   return match ? match[1] : null
 }
 
@@ -138,26 +146,13 @@ export default function LinkPreviewCard({ url }: { url: string }) {
 
     return (
       <div className="rounded-2xl overflow-hidden border border-gray-100 hover:border-gray-300 bg-white my-4 transition-all group/yt-card shadow-sm hover:shadow-md">
-        <div className="aspect-video bg-black relative group/video border-b border-gray-100">
-          {expandedVideo === youtubeId ? (
-            <iframe src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1`} className="w-full h-full border-0" allow="autoplay; encrypted-media; fullscreen" />
-          ) : (
-            <div className="w-full h-full cursor-pointer relative" onClick={() => setExpandedVideo(youtubeId)}>
-              <img src={`https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`} 
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.src = `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`;
-                }}
-                className="w-full h-full object-cover opacity-90 group-hover/video:opacity-100 transition-opacity" 
-                alt="Play Video" 
-              />
-              <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover/video:bg-black/20 transition-colors">
-                <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center text-white shadow-2xl group-hover/video:scale-110 transition-transform">
-                  <Play className="w-8 h-8 fill-current translate-x-1" />
-                </div>
-              </div>
-            </div>
-          )}
+        <div className="aspect-video bg-black relative border-b border-gray-100">
+          <iframe 
+            src={`https://www.youtube.com/embed/${youtubeId}`} 
+            className="w-full h-full border-0" 
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+            allowFullScreen
+          />
         </div>
         <div className="p-5">
           <div className="flex items-center gap-1.5 mb-2">

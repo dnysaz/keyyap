@@ -85,7 +85,8 @@ export async function GET(request: Request) {
       title: decode(title), 
       description: decode(description), 
       image, 
-      url 
+      url: url,
+      resolvedUrl: response.url
     });
   } catch (error) {
     return NextResponse.json({ error: 'Failed to fetch preview' }, { status: 500 });
